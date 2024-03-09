@@ -1,1 +1,7 @@
 node_modules
+img
+.temphost
+cid-data.json
+.env
+recipes
+pnpm-lock.yaml
