@@ -1,58 +1,7 @@
-import { FrameScreen } from "../model/recipe"
-import { cachedIpfsImage } from "../middleware/ipfsCachedGeneratedImage"
-import { generateTitlePage, generateIngredientsPage, generateStepPage, generateCompletedPage } from '../display/recipeDisplay';
-import { RecipeData, getIngredientPages } from "../model/recipe"
+import { MAX_SCALE, MIN_SCALE, RecipeData, getCompletedImageKey, getCompletedPageUrl, getIngredientPages, getIngredientsImageKey, getIngredientsPageUrl, getStepImageKey, getStepsPageUrl, getTitleImageKey, getTitlePageUrl } from "./model"
 import { html, raw } from 'hono/html'
-import { generateImage } from "../helpers/imageGenerationHelpers";
-import { convertImageToBase64 } from "../helpers/fileHelpers";
-
-const MAX_SCALE = 8
-const MIN_SCALE = 1
-
-const getTitlePageUrl = (originUrl: URL, recipeId: string, scale: number) => {
-    return `${originUrl.origin}/${recipeId}/${scale}/${FrameScreen.TITLE}`
-}
-
-const getIngredientsPageUrl = (originUrl: URL, recipeId: string, scale: number, page: number) => {
-    return `${originUrl.origin}/${recipeId}/${scale}/${FrameScreen.INGREDIENTS}/${page}`
-}
-
-const getStepsPageUrl = (originUrl: URL, recipeId: string, scale: number, page: number) => {
-    return `${originUrl.origin}/${recipeId}/${scale}/${FrameScreen.STEPS}/${page}`
-}
-
-const getCompletedPageUrl = (originUrl: URL, recipeId: string, scale: number) => {
-    return `${originUrl.origin}/${recipeId}/${scale}/${FrameScreen.COMPLETED}`
-}
-
-const getTitleImageUrl = async (recipeId: string, recipeData: RecipeData, scale: number) => {
-    return cachedIpfsImage(`${recipeId}-x${scale}-title.png`, async () => {
-        const backgroundImage = await getBackgroundImageBase64()
-        return generateImage(generateTitlePage(recipeData, scale, backgroundImage))
-    })
-}
-
-const getIngredientsImageUrl = async (recipeId: string, recipeData: RecipeData, scale: number, page: number) => {
-    return cachedIpfsImage(`${recipeId}-x${scale}-ingredients-${page}.png`, () => {
-        return generateImage(generateIngredientsPage(recipeData, scale, page))
-    })
-}
-
-const getStepImageUrl = async (recipeId: string, recipeData: RecipeData, scale: number, step: number) => {
-    return cachedIpfsImage(`${recipeId}-x${scale}-step-${step}.png`, () => {
-        return generateImage(generateStepPage(recipeData, scale, step))
-    })
-}
-
-const getCompletedImageUrl = async (recipeId: string, recipeData: RecipeData, scale: number) => {
-    return cachedIpfsImage(`${recipeId}-x${scale}-completed.png`, () => {
-        return generateImage(generateCompletedPage())
-    })
-}
-
-const getBackgroundImageBase64 = async () => {
-    return convertImageToBase64("https://picsum.photos/id/237/200/300")
-}
+import { FrameScreen } from './model';
+import { getRecipeAssetCid, getRecipeAssetUrl } from "./fileHelpers";
 
 const createFrameButton = (buttonNumber: number, content: string, target: string = '') => {
     var button = `<meta property="fc:frame:button:${buttonNumber}" content="${content}" />`
@@ -63,11 +12,10 @@ const createFrameButton = (buttonNumber: number, content: string, target: string
     return button
 }
   
-const handleTitleScreen = async (requestUrl: string, recipeId: string, recipeData: RecipeData, scale: number) => {
+const handleTitleScreen = async (recipeId: string, requestUrl: string, scale: number) => {
     const url = new URL(requestUrl)
     console.log("Getting frame image")
-    const frameImage = await getTitleImageUrl(recipeData.title, recipeData, scale)
-    console.log(frameImage)
+    const frameImage = getRecipeAssetUrl(recipeId, getTitleImageKey(scale))
     var buttonsCount = 0
     var buttons = ''
   
@@ -102,9 +50,9 @@ const handleTitleScreen = async (requestUrl: string, recipeId: string, recipeDat
     return frameHeadTemplate
 }
   
-const handleIngredientsScreen = async (requestUrl: string, recipeId: string, recipeData: RecipeData, scale: number, page: number) => {
+const handleIngredientsScreen = async (recipeId: string,  recipeData: RecipeData, requestUrl: string, scale: number, page: number) => {
     const url = new URL(requestUrl)
-    const frameImage = await getIngredientsImageUrl(recipeData.title, recipeData, scale, page)
+    const frameImage = getRecipeAssetUrl(recipeId, getIngredientsImageKey(scale, page))
     var buttonsCount = 0
     var buttons = ''
   
@@ -155,9 +103,9 @@ const handleIngredientsScreen = async (requestUrl: string, recipeId: string, rec
     return frameHeadTemplate
 }
   
-const handleStepScreen = async (requestUrl: string, recipeId: string, recipeData: RecipeData, scale: number, step: number) => {
+const handleStepScreen = async (recipeId: string, recipeData: RecipeData, requestUrl: string, scale: number, step: number) => {
     const url = new URL(requestUrl)
-    const frameImage = await getStepImageUrl(recipeData.title, recipeData, scale, step)
+    const frameImage = getRecipeAssetUrl(recipeId, getStepImageKey(scale, step))
     var buttonsCount = 0
     var buttons = ''
   
@@ -206,9 +154,9 @@ const handleStepScreen = async (requestUrl: string, recipeId: string, recipeData
     return frameHeadTemplate
 }
   
-const handleCompletedScreen = async (requestUrl: string, recipeId: string, recipeData: RecipeData, scale: number) => {
+const handleCompletedScreen = async (recipeId: string, requestUrl: string, scale: number) => {
     const url = new URL(requestUrl)
-    const frameImage = await getCompletedImageUrl(recipeData.title, recipeData, scale)
+    const frameImage = getCompletedImageKey()
     var buttonsCount = 0
     var buttons = ''
   
@@ -237,12 +185,12 @@ const handleCompletedScreen = async (requestUrl: string, recipeId: string, recip
 export const handleRecipeFrame = async (postUrl: string, recipeId: string, recipeData: RecipeData, scale: number, screen: FrameScreen, page: number) => {
     switch (screen) {
         case FrameScreen.TITLE:
-            return await handleTitleScreen(postUrl, recipeId, recipeData, scale)
+            return await handleTitleScreen(recipeId, postUrl, scale)
         case FrameScreen.INGREDIENTS:
-            return await handleIngredientsScreen(postUrl, recipeId, recipeData, scale, page)
+            return await handleIngredientsScreen(recipeId, recipeData, postUrl, scale, page)
         case FrameScreen.STEPS:
-            return await handleStepScreen(postUrl, recipeId, recipeData, scale, page)
+            return await handleStepScreen(recipeId, recipeData, postUrl,  scale, page)
         case FrameScreen.COMPLETED:
-            return await handleCompletedScreen(postUrl, recipeId, recipeData, scale)
+            return await handleCompletedScreen(recipeId, postUrl, scale)
     }
 }

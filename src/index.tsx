@@ -1,31 +1,60 @@
-require('dotenv').config()
+import { default as dotenv } from 'dotenv'
+dotenv.config()
 import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
-import { periodicallySaveIpfsCachedImagesMiddleware } from './middleware/ipfsCachedGeneratedImage'
-import { handleRecipeFrame } from './frames/handlers'
-import { parseFrameArgs } from './config/argumentHelpers'
+import { Hono, Context } from 'hono'
+import { handleRecipeFrame } from './handlers'
+import { FrameScreen, MIN_SCALE, MAX_SCALE } from './model'
+import { getRecipeData } from './fileHelpers'
+import { cid } from 'is-ipfs'
 
-import type { FrameSignaturePacket } from './types'
-import { pinBufferToIPFS } from './helpers/ipfsHelpers'
-import { RecipeData } from './model/recipe'
+function parseScreenFromString(value: string | undefined): FrameScreen {
+  const entries = Object.entries(FrameScreen);
+  for (let [key, enumValue] of entries) {
+    if (value === enumValue) {
+      return FrameScreen[key as keyof typeof FrameScreen];
+    }
+  }
+  return FrameScreen.TITLE
+}
 
+export const parseFrameArgs = (c: Context) => {
+  const recipeId = c.req.param('recipeId')
+  if (!recipeId || !cid(recipeId)) {
+    console.log(`Invalid recipe cid ${recipeId}`)
+    return null
+  }
+
+  const recipeData = getRecipeData(recipeId)
+  if (!recipeData) {
+    console.log(`Recipe not found on file`)
+    return null
+  }
+
+  var screen = parseScreenFromString(c.req.query('screen'))
+  var scale = parseInt(c.req.query('scale') ?? '1')
+  if (Number.isNaN(scale) || scale < MIN_SCALE) {
+    scale = MIN_SCALE
+  } else if (scale > MAX_SCALE) {
+    scale = MAX_SCALE
+  }
+
+  var page = parseInt(c.req.query('page') ?? '1')
+  if (Number.isNaN(page) || page < 1) {
+    page = 1
+  }
+
+  return {
+    recipeId,
+    recipeData,
+    scale,
+    screen,
+    page
+  }
+}
 
 const frameApp = new Hono()
 
-frameApp.use('*', periodicallySaveIpfsCachedImagesMiddleware)
-
-frameApp.get('/:recipeId', async (c) => {
-  const parsed = parseFrameArgs(c)
-  if (parsed == null) {
-    c.status(404)
-    return c.body(`Recipe not found`)
-  }
-  const { recipeId, recipeData, scale, screen, page } = parsed;
-  const htmlString = await handleRecipeFrame(c.req.url, recipeId, recipeData, scale, screen, page)
-  return c.html(htmlString)
-})
-
-frameApp.post('/:recipeId/:scale?/:screen?/:page?', async (c) => {
+const handleRecipeHtml = async (c: Context) => {
   const parsed = parseFrameArgs(c)
   if (parsed == null) {
     c.status(404)
@@ -34,30 +63,16 @@ frameApp.post('/:recipeId/:scale?/:screen?/:page?', async (c) => {
   const { recipeId, recipeData, scale, screen, page } = parsed;
   const htmlString = await handleRecipeFrame(c.req.url, recipeId, recipeData, scale, screen, page)
   return c.html(htmlString)
-})
+}
 
 const framePort = 3000
 
 console.log(`Server is running on port ${framePort}`)
 
+frameApp.get('/:recipeId', handleRecipeHtml)
+frameApp.post('/:recipeId', handleRecipeHtml)
+
 serve({
   fetch: frameApp.fetch,
   port: framePort,
-})
-
-const ingestApp = new Hono()
-
-ingestApp.post(async (c) => {
-  const cid = await pinBufferToIPFS("dakjdnfakjsdfkanj", Buffer.from(await c.req.arrayBuffer()))
-  console.log(`Received recipe: ${cid}`)
-  return c.text('Uploaded recipe blob: ')
-})
-
-const ingestPort = 3001
-
-console.log(`Ingest endpoint is running on port ${ingestPort}`)
-
-serve({
-  fetch: ingestApp.fetch,
-  port: ingestPort
 })

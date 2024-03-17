@@ -5,3 +5,4 @@ cid-data.json
 .env
 recipes
 pnpm-lock.yaml
+package-lock.json

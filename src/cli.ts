@@ -5,5 +5,5 @@ inquirer.prompt([{
     name: "task",
     message: "Select a task.",
     type: "input",
-    choices: [ "create", "add", "remove", "delete" ]
+    choices: [ "" ]
 }], )

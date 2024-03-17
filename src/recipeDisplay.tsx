@@ -1,7 +1,75 @@
 import React from 'react';
-import { IngredientData, RecipeData, getIngredientPages } from '../model/recipe';
-import { convertImageToBase64 } from '../helpers/fileHelpers';
-import { raw } from 'hono/html';
+import satori from "satori"
+import fs from 'fs'
+import puppeteer from 'puppeteer';
+import { join } from 'path'
+import { IngredientData, RecipeData, getIngredientPages } from './model';
+import { downloadBase64Image } from './fileHelpers';
+
+const basePath = process.cwd()
+const fontsPath = join(basePath, 'fonts')
+
+export const headingFontPath = join(fontsPath, 'DMSerifDisplay-Regular.ttf')
+export const regularFontPath = join(fontsPath, 'SplineSansMono-Light.ttf')
+export const smallFontPath = join(fontsPath, 'SplineSansMono-Regular.ttf')
+
+async function convertSvgToPng(svgContent: string) {
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+
+  await page.setContent(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { margin: 0; padding: 0; }
+        svg { display: block; }
+      </style>
+    </head>
+    <body>${svgContent}</body>
+    </html>
+  `);
+
+  await page.setViewport({
+    width: 764,
+    height: 400,
+  });
+
+  // Take a screenshot of the page which contains only the SVG and save as PNG
+  const screenshotBuffer = await page.screenshot({
+    type: 'png'
+  }).finally(() => browser.close());
+
+  return screenshotBuffer;
+}
+
+export const renderJSXToSVG = async (h: JSX.Element) => {
+    const svg = await satori(h, {
+      width: 764,
+      height: 400,
+      fonts: [
+        {
+          name: 'heading',
+          data: fs.readFileSync(headingFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+        {
+          name: 'regular',
+          data: fs.readFileSync(regularFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+        {
+          name: 'small',
+          data: fs.readFileSync(smallFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+      ],
+    })
+    return await convertSvgToPng(svg)
+}
 
 export const CircularHoursIndicator = ({ hours } : { hours: number }) => {
     const degrees = (hours / 24) * 360
@@ -90,19 +158,19 @@ const parseRecipeScale = (text: string, scale: number) => {
     });
 }
 
-export const generateTitlePage = (recipeData: RecipeData, scale: number, backgroundImage: string) => {
-    const yieldsParsed = parseRecipeScale(recipeData.yields, scale); // Typo correction from 'yeilds' to 'yields'
+export const generateTitlePage = (recipeData: RecipeData, scale: number, backgroundImageBase64: string) => {
+    const yieldsParsed = parseRecipeScale(recipeData.yields, scale);
     const descriptionParsed = parseRecipeScale(recipeData.description, scale);
     const scaleString = scale > 1 ? `Scale: x${scale}` : '';
     return (
         <div style={{
-            position: 'relative', // This makes child absolute positioning relative to this div
+            position: 'relative',
             display: 'flex',
             flexDirection: 'column',
-            height: '100vh', // Adjust height to fill the screen or container
-            width: '100vw', // Adjust width to fill the screen or container
+            height: '100vh',
+            width: '100vw',
         }}>
-            <img src={backgroundImage} style={{
+            <img src={`data:image/png;base64,${backgroundImageBase64}`} style={{
                 position: 'absolute',
                 bottom: 0,
                 right: 0,
@@ -119,7 +187,7 @@ export const generateTitlePage = (recipeData: RecipeData, scale: number, backgro
                 background: 'linear-gradient(150deg, rgba(252, 251, 244, 1), rgba(252, 251, 244,0.95) 49%, rgba(252, 251, 244,0.9) 59%, rgba(252, 251, 244,0.65) 77%, rgba(252, 251, 244,0))',
             }} />
             <div style={{
-                position: 'relative', // Ensure content is on top of the image
+                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 height: '100%',
@@ -261,3 +329,20 @@ export const generateCompletedPage = (): JSX.Element => {
         </div>
     );
 };
+
+export const generateTitleSvg = async (recipeData: RecipeData, backgroundImageCid: string, scale: number) => {
+  const backgroundImageBase64 = await downloadBase64Image(backgroundImageCid)
+  return renderJSXToSVG(generateTitlePage(recipeData, scale, backgroundImageBase64))
+}
+
+export const generateIngredientsSvg = async (recipeData: RecipeData, scale: number, page: number) => {
+  return renderJSXToSVG(generateIngredientsPage(recipeData, scale, page))
+}
+
+export const generateStepSvg = async (recipeData: RecipeData, scale: number, step: number) => {
+  return renderJSXToSVG(generateStepPage(recipeData, scale, step))
+}
+
+export const generateCompletedSvg = async () => {
+  return renderJSXToSVG(generateCompletedPage())
+}
