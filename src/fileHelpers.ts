@@ -3,8 +3,6 @@ import { RecipeData } from './model';
 import { join } from 'path';
 import { RenderedRecipeSet } from './model';
 import { downloadIPFSBuffer, getIPFSUrl } from './ipfsHelpers';
-import { ipfsUrl } from 'is-ipfs';
-import { default as axios } from 'axios'
 
 const RELOAD_INTERVAL = 10000
 const BASE_DIR = process.cwd()
@@ -13,7 +11,7 @@ const RENDERED_RECIPES_FILE = join(BASE_DIR, 'rendered.json')
 var loaded: RenderedRecipeSet = {}
 var lastLoaded = Date.now()
 
-const loadRenderedRecipeSetFromDisk = (): RenderedRecipeSet => {
+export const loadRenderedRecipeSetFromDisk = (): RenderedRecipeSet => {
   try {
       return JSON.parse(fs.readFileSync(RENDERED_RECIPES_FILE, 'utf8'))
   } catch (e) {
@@ -22,7 +20,7 @@ const loadRenderedRecipeSetFromDisk = (): RenderedRecipeSet => {
   }
 }
 
-const getRenderedRecipeSet = (): RenderedRecipeSet => {
+export const getRenderedRecipeSet = (): RenderedRecipeSet => {
   if (Date.now() > lastLoaded + RELOAD_INTERVAL) {
     loaded = loadRenderedRecipeSetFromDisk()
   }
