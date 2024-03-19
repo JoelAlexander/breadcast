@@ -1,4 +1,4 @@
-export const MAX_SCALE = 8
+export const MAX_SCALE = 4
 export const MIN_SCALE = 1
 
 export enum FrameScreen {
@@ -70,15 +70,15 @@ export const getCompletedPageUrl = (originUrl: URL, recipeId: string, scale: num
 }
 
 export const getTitleImageKey = (scale: number) => {
-  return `${scale}-title`
+  return `title-${scale}`
 }
 
 export const getIngredientsImageKey = (scale: number, page: number) => {
-  return `${scale}-ingredients-${page}`
+  return `ingredients-${scale}-${page}`
 }
 
 export const getStepImageKey = (scale: number, step: number) => {
-  return `${scale}-step-${step}`
+  return `step-${scale}-${step}`
 }
 
 export const getCompletedImageKey = () => {

@@ -3,12 +3,76 @@ dotenv.config()
 import inquirer, { Answers } from "inquirer"
 import { join } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { RecipeSet } from './model';
+import { MAX_SCALE, MIN_SCALE, RecipeData, RecipeSet, RecipeSetEntry, getCompletedImageKey, getIngredientPages, getIngredientsImageKey, getStepImageKey, getTitleImageKey } from './model';
 import { cid } from 'is-ipfs';
-import { pinBufferToIPFS, pinListEntire, pinListPage, unpin } from './ipfsHelpers';
-import { loadRenderedRecipeSetFromDisk } from './fileHelpers';
+import { downloadIPFSJson, pinBufferToIPFS, pinListEntire, unpin } from './ipfsHelpers';
+import { downloadBase64Image, loadRenderedRecipeSetFromDisk } from './fileHelpers';
+import { RenderedRecipe } from './model';
+import puppeteer from 'puppeteer';
+import satori from 'satori'
+import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage } from './recipeDisplay';
+
 const BASE_DIR = process.cwd()
 const RECIPES_FILE = join(BASE_DIR, 'recipes.json')
+const FONTS_PATH = join(BASE_DIR, 'fonts')
+
+const headingFontPath = join(FONTS_PATH, 'DMSerifDisplay-Regular.ttf')
+const regularFontPath = join(FONTS_PATH, 'SplineSansMono-Light.ttf')
+const smallFontPath = join(FONTS_PATH, 'SplineSansMono-Regular.ttf')
+
+const browser = await puppeteer.launch();
+const page = await browser.newPage();
+
+async function convertSvgToPng(svgContent: string) {
+  await page.setContent(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { margin: 0; padding: 0; }
+        svg { display: block; }
+      </style>
+    </head>
+    <body>${svgContent}</body>
+    </html>
+  `);
+
+  await page.setViewport({
+    width: 764,
+    height: 400,
+  });
+
+  const screenshotBuffer = await page.screenshot({type: 'png'});
+  return screenshotBuffer;
+}
+
+export const renderJSX = async (h: JSX.Element) => {
+    const svg = await satori(h, {
+      width: 764,
+      height: 400,
+      fonts: [
+        {
+          name: 'heading',
+          data: readFileSync(headingFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+        {
+          name: 'regular',
+          data: readFileSync(regularFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+        {
+          name: 'small',
+          data: readFileSync(smallFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+      ],
+    })
+    return await convertSvgToPng(svg)
+}
 
 const loadRecipeSetFromDisk = (): RecipeSet => {
   try {
@@ -122,10 +186,16 @@ const handleViewWorkingSet = async () => {
   const pinnedCidSet = new Set(pinListResponse.rows.map(it => it.ipfs_pin_hash))
   const countOverpinned = Math.max(0, pinnedCidSet.size - PINNED_FILES_LIMIT)
 
-  console.log(`You currenty have ${pinnedCidSet.size} pinned files`)
+  console.log(`You currenty have ${pinnedCidSet.size} total pinned files`)
 
   if (countOverpinned > 0) {
     console.log(`Which is ${countOverpinned} too many files pinned compared to the limit ${PINNED_FILES_LIMIT}`)
+  }
+
+  const pinnedAndActive = new Set([...activeCidSet].filter(a => pinnedCidSet.has(a)))
+  if (pinnedAndActive.size > 0) {
+    const activePinnedPercentage = ((pinnedAndActive.size / pinnedCidSet.size) * 100).toFixed(2)
+    console.log(`${pinnedAndActive.size} / ${pinnedCidSet.size} (${activePinnedPercentage}%) are referenced in your recipe sets.`)
   }
 
   const pinnedNotActive = new Set([...pinnedCidSet].filter(a => !activeCidSet.has(a)))
@@ -236,6 +306,73 @@ const promptBulkUnpin = async (pinnedNotActive: Set<string>) => {
   }
 }
 
+const pinBufferWithName = async (buffer: Buffer, name: string): Promise<string> => {
+  return pinBufferToIPFS(buffer, name).then((cid) => {
+    console.log(`Pinned ${name}: ${cid}`)
+    return cid
+  })
+}
+
+const renderAndPinJsxWithName = async (jsx: JSX.Element, name: string): Promise<string> => {
+  console.log(`Rendering ${name}`)
+  const pngBuffer = await renderJSX(jsx)
+  return pinBufferToIPFS(pngBuffer, name)
+}
+
+const renderAndPinFrame = async (recipeSetEntry: RecipeSetEntry): Promise<RenderedRecipe> => {
+  const recipeData = await downloadIPFSJson(recipeSetEntry.jsonCid) as RecipeData
+  const ingredientPageCount = getIngredientPages(recipeData).length
+  const backgroundImageBase64 = await downloadBase64Image(recipeSetEntry.imageCid)
+  const renderedRecipe: RenderedRecipe = { recipeData: recipeData, assetCids: {} }
+
+  for (var scale = MIN_SCALE; scale <= MAX_SCALE; scale++) {
+    
+    const titleKey = getTitleImageKey(scale)
+    const titlePage = generateTitlePage(recipeData, scale, backgroundImageBase64)
+    renderedRecipe.assetCids[titleKey] = await renderAndPinJsxWithName(titlePage, titleKey)
+
+    for (var ingredientPage = 1; ingredientPage <= ingredientPageCount; ingredientPage++) {
+      const pageKey = getIngredientsImageKey(scale, ingredientPage)
+      const page = generateIngredientsPage(recipeData, scale, ingredientPage)
+      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(page, pageKey)
+    }
+
+    for (var step = 1; step <= recipeData.steps.length; step++) {
+      const pageKey = getStepImageKey(scale, step)
+      const page = generateStepPage(recipeData, scale, step)
+      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(page, pageKey)
+    }
+  }
+
+  renderAndPinJsxWithName(generateCompletedPage(), getCompletedImageKey())
+
+  return renderedRecipe
+}
+
+const handleRenderAndPinFrame = () => {
+  const recipeSet = loadRecipeSetFromDisk()
+  const choices = Object.keys(recipeSet)
+
+  inquirer.prompt([{
+    type: 'input',
+    message: 'Choose a recipe to render and pin: ',
+    name: 'recipeKey',
+    choices: choices,
+    when: () => choices.length > 0
+  }]).then(async (answers: Answers) => {
+    if (answers.recipeKey) {
+      await renderAndPinFrame(recipeSet[answers.recipeKey])
+    } else {
+      console.log('No recipe to render')
+    }
+  })
+}
+
+const handleDownloadFrame = () => {
+  const renderedRecipeSet = loadRenderedRecipeSetFromDisk()
+
+}
+
 const handleAction = async (answers: Answers) => {
   switch (answers.action) {
     case 'add-recipe':
@@ -246,6 +383,12 @@ const handleAction = async (answers: Answers) => {
       break;
     case 'view-working-set':
       await handleViewWorkingSet()
+      break;
+    case 'render-and-pin-frame':
+      handleRenderAndPinFrame()
+      break;
+    case 'download-frame':
+      handleDownloadFrame()
       break;
   }
 }
@@ -266,6 +409,14 @@ inquirer.prompt([{
       {
         name: 'View content working set',
         value: 'view-working-set'
+      },
+      {
+        name: 'Render and pin recipe frame',
+        value: 'render-and-pin-frame'
+      },
+      {
+        name: 'Download rendered frame',
+        value: 'download-frame'
       }
     ],
     loop: false
