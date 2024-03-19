@@ -1,7 +1,5 @@
 import React from 'react';
 import { IngredientData, RecipeData, getIngredientPages } from './model';
-import { downloadBase64Image } from './fileHelpers';
-
 
 export const CircularHoursIndicator = ({ hours } : { hours: number }) => {
     const degrees = (hours / 24) * 360

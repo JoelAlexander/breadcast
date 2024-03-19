@@ -8,71 +8,19 @@ import { cid } from 'is-ipfs';
 import { downloadIPFSJson, pinBufferToIPFS, pinListEntire, unpin } from './ipfsHelpers';
 import { downloadBase64Image, loadRenderedRecipeSetFromDisk } from './fileHelpers';
 import { RenderedRecipe } from './model';
-import puppeteer from 'puppeteer';
+import puppeteer, { Page } from 'puppeteer';
 import satori from 'satori'
 import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage } from './recipeDisplay';
 
 const BASE_DIR = process.cwd()
-const RECIPES_FILE = join(BASE_DIR, 'recipes.json')
 const FONTS_PATH = join(BASE_DIR, 'fonts')
-
 const headingFontPath = join(FONTS_PATH, 'DMSerifDisplay-Regular.ttf')
 const regularFontPath = join(FONTS_PATH, 'SplineSansMono-Light.ttf')
 const smallFontPath = join(FONTS_PATH, 'SplineSansMono-Regular.ttf')
 
-const browser = await puppeteer.launch();
-const page = await browser.newPage();
-
-async function convertSvgToPng(svgContent: string) {
-  await page.setContent(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { margin: 0; padding: 0; }
-        svg { display: block; }
-      </style>
-    </head>
-    <body>${svgContent}</body>
-    </html>
-  `);
-
-  await page.setViewport({
-    width: 764,
-    height: 400,
-  });
-
-  const screenshotBuffer = await page.screenshot({type: 'png'});
-  return screenshotBuffer;
-}
-
-export const renderJSX = async (h: JSX.Element) => {
-    const svg = await satori(h, {
-      width: 764,
-      height: 400,
-      fonts: [
-        {
-          name: 'heading',
-          data: readFileSync(headingFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-        {
-          name: 'regular',
-          data: readFileSync(regularFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-        {
-          name: 'small',
-          data: readFileSync(smallFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-      ],
-    })
-    return await convertSvgToPng(svg)
-}
+const BREADCAST_BASE_DIR = process.env.BREADCAST_ENV ?? BASE_DIR
+const BREADCAST_ENV = process.env.ACTIVE_ENV ?? ""
+const RECIPES_FILE = join(BREADCAST_BASE_DIR, BREADCAST_ENV, 'recipes.json')
 
 const loadRecipeSetFromDisk = (): RecipeSet => {
   try {
@@ -313,13 +261,70 @@ const pinBufferWithName = async (buffer: Buffer, name: string): Promise<string> 
   })
 }
 
-const renderAndPinJsxWithName = async (jsx: JSX.Element, name: string): Promise<string> => {
+const renderAndPinJsxWithName = async (page: Page, jsx: JSX.Element, name: string): Promise<string> => {
+
+  async function convertSvgToPng(svgContent: string) {
+    await page.setContent(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { margin: 0; padding: 0; }
+          svg { display: block; }
+        </style>
+      </head>
+      <body>${svgContent}</body>
+      </html>
+    `);
+
+    await page.setViewport({
+      width: 764,
+      height: 400,
+    });
+
+    const screenshotBuffer = await page.screenshot({type: 'png'});
+    return screenshotBuffer;
+  }
+
+  const renderJSX = async (h: JSX.Element) => {
+    const svg = await satori(h, {
+      width: 764,
+      height: 400,
+      fonts: [
+        {
+          name: 'heading',
+          data: readFileSync(headingFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+        {
+          name: 'regular',
+          data: readFileSync(regularFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+        {
+          name: 'small',
+          data: readFileSync(smallFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+      ],
+    })
+    return await convertSvgToPng(svg)
+  }
+
   console.log(`Rendering ${name}`)
   const pngBuffer = await renderJSX(jsx)
   return pinBufferToIPFS(pngBuffer, name)
 }
 
 const renderAndPinFrame = async (recipeSetEntry: RecipeSetEntry): Promise<RenderedRecipe> => {
+  const browser = await puppeteer.launch(); // Super heavy
+  const page = await browser.newPage()
+
+  console.log(`Rendering environment set up.`)
+
   const recipeData = await downloadIPFSJson(recipeSetEntry.jsonCid) as RecipeData
   const ingredientPageCount = getIngredientPages(recipeData).length
   const backgroundImageBase64 = await downloadBase64Image(recipeSetEntry.imageCid)
@@ -328,23 +333,23 @@ const renderAndPinFrame = async (recipeSetEntry: RecipeSetEntry): Promise<Render
   for (var scale = MIN_SCALE; scale <= MAX_SCALE; scale++) {
     
     const titleKey = getTitleImageKey(scale)
-    const titlePage = generateTitlePage(recipeData, scale, backgroundImageBase64)
-    renderedRecipe.assetCids[titleKey] = await renderAndPinJsxWithName(titlePage, titleKey)
+    const titlePageJsx = generateTitlePage(recipeData, scale, backgroundImageBase64)
+    renderedRecipe.assetCids[titleKey] = await renderAndPinJsxWithName(page, titlePageJsx, titleKey)
 
     for (var ingredientPage = 1; ingredientPage <= ingredientPageCount; ingredientPage++) {
       const pageKey = getIngredientsImageKey(scale, ingredientPage)
-      const page = generateIngredientsPage(recipeData, scale, ingredientPage)
-      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(page, pageKey)
+      const ingredientsPageJsx = generateIngredientsPage(recipeData, scale, ingredientPage)
+      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(page, ingredientsPageJsx, pageKey)
     }
 
     for (var step = 1; step <= recipeData.steps.length; step++) {
       const pageKey = getStepImageKey(scale, step)
-      const page = generateStepPage(recipeData, scale, step)
-      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(page, pageKey)
+      const stepPageJsx = generateStepPage(recipeData, scale, step)
+      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(page, stepPageJsx, pageKey)
     }
   }
 
-  renderAndPinJsxWithName(generateCompletedPage(), getCompletedImageKey())
+  renderAndPinJsxWithName(page, generateCompletedPage(), getCompletedImageKey())
 
   return renderedRecipe
 }
