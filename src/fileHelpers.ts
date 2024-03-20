@@ -1,15 +1,10 @@
 import fs from 'fs'
 import { RecipeData } from './model';
-import { join } from 'path';
 import { RenderedRecipeSet } from './model';
 import { downloadIPFSBuffer, getIPFSUrl } from './ipfsHelpers';
+import { RENDERED_RECIPES_FILE } from './environment';
 
 const RELOAD_INTERVAL = 10000
-
-const BASE_DIR = process.cwd()
-const BREADCAST_BASE_DIR = process.env.BREADCAST_ENV ?? BASE_DIR
-const BREADCAST_ENV = process.env.ACTIVE_ENV ?? ""
-const RENDERED_RECIPES_FILE = join(BREADCAST_BASE_DIR, BREADCAST_ENV, 'rendered-recipes.json')
 
 var loaded: RenderedRecipeSet = {}
 var lastLoaded = Date.now()

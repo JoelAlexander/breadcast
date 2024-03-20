@@ -11,6 +11,7 @@ import { RenderedRecipe } from './model';
 import puppeteer, { Page } from 'puppeteer';
 import satori from 'satori'
 import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage } from './recipeDisplay';
+import { RECIPES_FILE } from './environment';
 
 const BASE_DIR = process.cwd()
 const FONTS_PATH = join(BASE_DIR, 'fonts')
@@ -18,16 +19,11 @@ const headingFontPath = join(FONTS_PATH, 'DMSerifDisplay-Regular.ttf')
 const regularFontPath = join(FONTS_PATH, 'SplineSansMono-Light.ttf')
 const smallFontPath = join(FONTS_PATH, 'SplineSansMono-Regular.ttf')
 
-const BREADCAST_BASE_DIR = process.env.BREADCAST_ENV ?? BASE_DIR
-const BREADCAST_ENV = process.env.ACTIVE_ENV ?? ""
-const RECIPES_FILE = join(BREADCAST_BASE_DIR, BREADCAST_ENV, 'recipes.json')
-
 const loadRecipeSetFromDisk = (): RecipeSet => {
   try {
     if (!existsSync(RECIPES_FILE)) return {}
     return JSON.parse(readFileSync(RECIPES_FILE, 'utf8'))
   } catch (e) {
-    console.log(`Could not load ${RECIPES_FILE}`)
     return {}
   }
 }
@@ -55,6 +51,12 @@ const addRecipeToRecipeSet = (recipeName: string, recipeDataCid: string, recipeB
   writeFileSync(RECIPES_FILE, JSON.stringify(recipeSet, null, 2))
 }
 
+const removeRecipeFromRecipeSet = (recipeName: string) => {
+  const recipeSet = loadRecipeSetFromDisk()
+  delete recipeSet[recipeName]
+  writeFileSync(RECIPES_FILE, JSON.stringify({...recipeSet}, null, 2))
+}
+
 const validateCid = (value: string) => {
   if (!cid(value)) {
     return `\'${value}\' is not a valid CID`
@@ -66,6 +68,8 @@ const validateNewRecipeName = (value: string) => {
   const recipeSet = loadRecipeSetFromDisk()
   if (recipeSet[value]) {
     return `\'${value}\' already exists in the recipe set`
+  } else if (value === '') {
+    return 'Recipe name cannot be empty'
   }
   return true
 }
@@ -356,10 +360,12 @@ const renderAndPinFrame = async (recipeSetEntry: RecipeSetEntry): Promise<Render
 
 const handleRenderAndPinFrame = () => {
   const recipeSet = loadRecipeSetFromDisk()
-  const choices = Object.keys(recipeSet)
+  const choices = Object.keys(recipeSet).map(key => {
+    return { name: key, value: key }
+  })
 
   inquirer.prompt([{
-    type: 'input',
+    type: 'list',
     message: 'Choose a recipe to render and pin: ',
     name: 'recipeKey',
     choices: choices,
@@ -378,16 +384,41 @@ const handleDownloadFrame = () => {
 
 }
 
+const handleRemoveRecipe = async () => {
+  const recipeSet = loadRecipeSetFromDisk()
+  const choices = Object.keys(recipeSet).map(key => {
+    return { name: key, value: key }
+  })
+
+  inquirer.prompt([{
+    type: 'list',
+    message: 'Choose a recipe to remove: ',
+    name: 'recipeKey',
+    choices: choices,
+    when: () => choices.length > 0
+  }]).then(async (answers: Answers) => {
+    if (answers.recipeKey) {
+      removeRecipeFromRecipeSet(answers.recipeKey)
+      console.log(`Removed ${answers.recipeKey} from the recipe set`)
+    } else {
+      console.log('No recipe to remove')
+    }
+  })
+}
+
 const handleAction = async (answers: Answers) => {
   switch (answers.action) {
     case 'add-recipe':
       handleAddRecipe()
       break;
+    case 'remove-recipe':
+      handleRemoveRecipe()
+      break;
     case 'pin-file':
       handlePinFile()
       break;
     case 'view-working-set':
-      await handleViewWorkingSet()
+      handleViewWorkingSet()
       break;
     case 'render-and-pin-frame':
       handleRenderAndPinFrame()
@@ -406,6 +437,10 @@ inquirer.prompt([{
       {
         name: 'Add recipe',
         value: 'add-recipe' 
+      },
+      {
+        name: 'Remove recipe',
+        value: 'remove-recipe'
       },
       {
         name: 'Pin file',
