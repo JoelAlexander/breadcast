@@ -26,6 +26,7 @@
     "form-data": "4.0.0",
     "hono": "3.12.11",
     "inquirer": "9.2.15",
+    "inquirer-file-tree-selection-prompt": "2.0.5",
     "is-ipfs": "8.0.4",
     "openai": "4.29.1",
     "puppeteer": "22.4.1",

@@ -13,7 +13,6 @@ export const loadRenderedRecipeSetFromDisk = (): RenderedRecipeSet => {
   try {
       return JSON.parse(fs.readFileSync(RENDERED_RECIPES_FILE, 'utf8'))
   } catch (e) {
-    console.log(`Could not load ${RENDERED_RECIPES_FILE}`)
     return {}
   }
 }

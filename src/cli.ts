@@ -2,7 +2,7 @@ import { default as dotenv } from 'dotenv'
 dotenv.config()
 import inquirer, { Answers } from "inquirer"
 import { join } from 'path';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, lstatSync, readdirSync } from 'fs';
 import { MAX_SCALE, MIN_SCALE, RecipeData, RecipeSet, RecipeSetEntry, getCompletedImageKey, getIngredientPages, getIngredientsImageKey, getStepImageKey, getTitleImageKey } from './model';
 import { cid } from 'is-ipfs';
 import { downloadIPFSJson, pinBufferToIPFS, pinListEntire, unpin } from './ipfsHelpers';
@@ -11,7 +11,13 @@ import { RenderedRecipe } from './model';
 import puppeteer, { Page } from 'puppeteer';
 import satori from 'satori'
 import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage } from './recipeDisplay';
-import { RECIPES_FILE } from './environment';
+import { BREADCAST_BASE_DIR, RECIPES_FILE } from './environment';
+
+import inquirerFileTreeSelection from 'inquirer-file-tree-selection-prompt'
+import { fileFromPath } from 'openai';
+import { readdir } from 'fs/promises';
+
+inquirer.registerPrompt('file-tree-selection', inquirerFileTreeSelection)
 
 const BASE_DIR = process.cwd()
 const FONTS_PATH = join(BASE_DIR, 'fonts')
@@ -74,9 +80,13 @@ const validateNewRecipeName = (value: string) => {
   return true
 }
 
-const validateFileExists = (value: string) => {
-  if (!existsSync(value)) {
-    return `\'${value}\' does not exist`;
+const validateChosenPinFile = (value: string) => {
+  const stats = lstatSync(value)
+  const ext = value.split('.').pop()
+  if (stats.isDirectory()) {
+    return false
+  } else if (ext !== 'png' && ext !== 'json') {
+    return false
   }
   return true;
 }
@@ -110,12 +120,25 @@ const handlePinFile = () => {
   inquirer.prompt([
     {
       name: 'filePath',
-      message: 'Enter the file path to pin',
-      type: 'input',
-      validate: validateFileExists
+      message: 'Choose the file to pin',
+      type: 'file-tree-selection',
+      root: BREADCAST_BASE_DIR,
+      onlyShowValid: true,
+      hideRoot: true,
+      when: () => {
+        return readdirSync(BREADCAST_BASE_DIR).filter((file) => {
+          const ext = file.split('.').pop()
+          return ext === 'png' || ext === 'json'
+        }).length > 0
+      },
+      validate: validateChosenPinFile
     }
   ]).then(async (answers) => {
     const { filePath } = answers;
+    if (!filePath) {
+      console.log('No files to pin matching .png or .json')
+      return
+    }
     try {
       const fileBuffer = readFileSync(filePath);
       const cid = await pinBufferToIPFS(fileBuffer, filePath);

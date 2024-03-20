@@ -100,7 +100,7 @@ export const generateTitlePage = (recipeData: RecipeData, scale: number, backgro
             height: '100vh',
             width: '100vw',
         }}>
-            <img src={`data:image/webp;base64,${backgroundImageBase64}`} style={{
+            <img src={`data:image/png;base64,${backgroundImageBase64}`} style={{
                 position: 'absolute',
                 bottom: 0,
                 right: 0,
