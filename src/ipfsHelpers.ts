@@ -17,10 +17,10 @@ interface PinListResponse {
 }
 
 export const getIPFSUrl = (cid: string) => {
-  return `${IPFS_GATEWAY}/ipfs/${cid}`
+  return `http://${IPFS_GATEWAY}/ipfs/${cid}`
 }
 
-export const pinBufferToIPFS = async (buffer: Buffer, fileName: string | undefined = undefined): Promise<string> => {
+export const pinBufferToIPFS = async (buffer: Buffer, fileName: string): Promise<string> => {
   const formData = new FormData();
   
   formData.append('file', buffer, fileName)
@@ -37,8 +37,7 @@ export const pinBufferToIPFS = async (buffer: Buffer, fileName: string | undefin
       'Authorization': `Bearer ${PINATA_JWT}`
     }
   })
-  const cid = res.data.IpfsHash
-  return cid
+  return res.data.IpfsHash
 }
 
 const PinListPageSize = 500

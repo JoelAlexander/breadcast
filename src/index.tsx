@@ -3,7 +3,7 @@ dotenv.config()
 import { serve } from '@hono/node-server'
 import { Hono, Context } from 'hono'
 import { FrameScreen, MIN_SCALE, MAX_SCALE, RecipeData } from './model'
-import { getRecipeData, getRecipeAssetUrl } from './fileHelpers'
+import { getRecipeData, getRecipeAssetUrl, getRecipeSet } from './fileHelpers'
 import { cid } from 'is-ipfs'
 import { BREADCAST_ENV } from './environment'
 import { downloadIPFSJson } from './ipfsHelpers'
@@ -11,7 +11,7 @@ import { HtmlEscapedString } from 'hono/utils/html'
 import { BreadcastFrameContext, BreadcastFrameArguments } from './model'
 import { getRecipeAssetKey, getFrameResponse } from './handlers'
 import { generateErrorImage, generateFrameImage } from './recipeDisplay'
-import { handleErrorScreen } from './handlers'
+import { url } from 'inspector'
 
 interface BreadcastFrameSupplier {
   getRecipeData: (recipeCid: string) => Promise<RecipeData | undefined>
@@ -33,6 +33,9 @@ const PrerenderedRecipeSupplier: BreadcastFrameSupplier = {
 
 const LiveRenderedRecipeSupplier: BreadcastFrameSupplier = {
   getRecipeData: async (cid) => {
+    const recipeSet = await getRecipeSet()
+    const recipeCidSet = new Set(Object.values(recipeSet))
+    if (!recipeCidSet.has(cid)) return undefined
     return downloadIPFSJson(cid)
   },
   getFrameImage: async (frameContext: BreadcastFrameContext): Promise<string> => {
@@ -68,7 +71,7 @@ const parseFrameArguments = (c: Context): BreadcastFrameArguments => {
   }
 
   return {
-    recipeCid: c.req.param('recipeId'),
+    recipeCid: c.req.param('recipeCid'),
     scale,
     screen,
     page

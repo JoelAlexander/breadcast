@@ -62,20 +62,20 @@ export const getIngredientPages = (recipeData: RecipeData) => {
   return pages
 }
 
-export const getTitlePageUrl = (originUrl: URL, recipeId: string, scale: number) => {
-  return `${originUrl.origin}/${recipeId}?scale=${scale}&screen=${FrameScreen.TITLE}`
+export const getTitlePageUrl = (originUrl: URL, recipeCid: string, scale: number) => {
+  return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.TITLE}`
 }
 
-export const getIngredientsPageUrl = (originUrl: URL, recipeId: string, scale: number, page: number) => {
-  return `${originUrl.origin}/${recipeId}?scale=${scale}&screen=${FrameScreen.INGREDIENTS}&page=${page}`
+export const getIngredientsPageUrl = (originUrl: URL, recipeCid: string, scale: number, page: number) => {
+  return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.INGREDIENTS}&page=${page}`
 }
 
-export const getStepsPageUrl = (originUrl: URL, recipeId: string, scale: number, page: number) => {
-  return `${originUrl.origin}/${recipeId}?scale=${scale}&screen=${FrameScreen.STEPS}&page=${page}`
+export const getStepsPageUrl = (originUrl: URL, recipeCid: string, scale: number, page: number) => {
+  return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.STEPS}&page=${page}`
 }
 
-export const getCompletedPageUrl = (originUrl: URL, recipeId: string, scale: number) => {
-  return `${originUrl.origin}/${recipeId}?scale=${scale}&screen=${FrameScreen.COMPLETED}`
+export const getCompletedPageUrl = (originUrl: URL, recipeCid: string, scale: number) => {
+  return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.COMPLETED}`
 }
 
 export const getTitleImageKey = (scale: number) => {

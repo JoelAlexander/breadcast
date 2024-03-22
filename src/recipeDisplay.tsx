@@ -1,12 +1,11 @@
 import React from 'react';
 import { IngredientData, RecipeData, getIngredientPages } from './model';
-import { downloadBase64PngImage } from './fileHelpers';
+import { downloadBase64PngImage, pngDataUri } from './fileHelpers';
 import { BreadcastFrameContext, FrameScreen } from './model';
 import satori from 'satori';
-import { Browser, Page } from 'puppeteer';
-import puppeteer from 'puppeteer';
 import { join } from 'path';
 import { readFileSync } from 'fs';
+import sharp from 'sharp';
 
 const BASE_DIR = process.cwd()
 const FONTS_PATH = join(BASE_DIR, 'fonts')
@@ -286,74 +285,38 @@ export const generateErrorPage = (): JSX.Element => {
   );
 };
 
-var browser: Browser;
-var page: Page;
+export const renderJSXToBuffer = async (jsx: JSX.Element): Promise<Buffer> => {
 
-export const renderJSXToPng = async (jsx: JSX.Element): Promise<Buffer> => {
-  if (!browser) {
-    browser = await puppeteer.launch()
-  }
+  const svg = await satori(jsx, {
+    width: 764,
+    height: 400,
+    fonts: [
+      {
+        name: 'heading',
+        data: readFileSync(headingFontPath),
+        weight: 200,
+        style: 'normal',
+      },
+      {
+        name: 'regular',
+        data: readFileSync(regularFontPath),
+        weight: 200,
+        style: 'normal',
+      },
+      {
+        name: 'small',
+        data: readFileSync(smallFontPath),
+        weight: 200,
+        style: 'normal',
+      },
+    ],
+  })
 
-  if (!page) {
-    page = await browser.newPage()
-  }
-
-  async function convertSvgToPng(svgContent: string) {
-    await page.setContent(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { margin: 0; padding: 0; }
-          svg { display: block; }
-        </style>
-      </head>
-      <body>${svgContent}</body>
-      </html>
-    `);
-
-    await page.setViewport({
-      width: 764,
-      height: 400,
-    });
-
-    return await page.screenshot({type: 'png'});
-  }
-
-  const renderJSX = async (h: JSX.Element) => {
-    const svg = await satori(h, {
-      width: 764,
-      height: 400,
-      fonts: [
-        {
-          name: 'heading',
-          data: readFileSync(headingFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-        {
-          name: 'regular',
-          data: readFileSync(regularFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-        {
-          name: 'small',
-          data: readFileSync(smallFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-      ],
-    })
-    return await convertSvgToPng(svg)
-  }
-
-  return await renderJSX(jsx)
+  return await sharp(Buffer.from(svg)).resize(764, 400).png({ quality: 100, compressionLevel: 6 }).toBuffer()
 }
 
-export const renderJSXToPngBase64 = async (jsx: JSX.Element): Promise<string> => {
-  const pngBuffer = await renderJSXToPng(jsx)
-  return `data:image/png;base64,${pngBuffer.toString('base64')}`
+export const renderJSXToPng = async (jsx: JSX.Element): Promise<string> => {
+  return pngDataUri(await renderJSXToBuffer(jsx))
 }
 
 export const generateFrameJsx = async (frameContext: BreadcastFrameContext): Promise<JSX.Element> => {
@@ -373,9 +336,9 @@ export const generateFrameJsx = async (frameContext: BreadcastFrameContext): Pro
 
 export const generateFrameImage = async (frameContext: BreadcastFrameContext): Promise<string> => {
   const jsx = await generateFrameJsx(frameContext)
-  return renderJSXToPngBase64(jsx)
+  return renderJSXToPng(jsx)
 }
 
 export const generateErrorImage = async (): Promise<string> => {
-  return renderJSXToPngBase64(generateErrorPage())
+  return renderJSXToPng(generateErrorPage())
 }

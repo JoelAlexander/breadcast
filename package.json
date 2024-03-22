@@ -17,10 +17,11 @@
   },
   "type": "module",
   "dependencies": {
-    "@hono/node-server": "1.7.0",
+    "@hono/node-server": "1.8.2",
     "@types/inquirer": "9.0.7",
     "@types/react": "18.2.55",
     "@types/react-dom": "18.2.19",
+    "axios": ">=1.6.0",
     "canvas": "2.11.2",
     "dotenv": "16.4.5",
     "form-data": "4.0.0",
@@ -29,10 +30,10 @@
     "inquirer-file-tree-selection-prompt": "2.0.5",
     "is-ipfs": "8.0.4",
     "openai": "4.29.1",
-    "puppeteer": "22.4.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "satori": "0.10.13"
+    "satori": "0.10.13",
+    "sharp": "0.33.2"
   },
   "devDependencies": {
     "@types/eslint": "8.56.2",
@@ -57,7 +58,7 @@
     "axios": ">=1.6.0"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.0.0",
     "pnpm": ">=8.0.0"
   }
 }

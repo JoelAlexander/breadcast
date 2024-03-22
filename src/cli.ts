@@ -1,27 +1,20 @@
 import { default as dotenv } from 'dotenv'
 dotenv.config()
 import inquirer, { Answers } from "inquirer"
-import { readFileSync, writeFileSync, existsSync, lstatSync, readdirSync } from 'fs';
-import { MAX_SCALE, MIN_SCALE, RecipeData, RecipeSet, getCompletedImageKey, getIngredientPages, getIngredientsImageKey, getStepImageKey, getTitleImageKey } from './model';
+import { readFileSync, writeFileSync, lstatSync, readdirSync } from 'fs';
+import { MAX_SCALE, MIN_SCALE, RecipeData, getCompletedImageKey, getIngredientPages, getIngredientsImageKey, getStepImageKey, getTitleImageKey } from './model';
 import { cid } from 'is-ipfs';
 import { downloadIPFSJson, pinBufferToIPFS, pinListEntire, unpin } from './ipfsHelpers';
 import { downloadBase64PngImage, loadRenderedRecipeSetFromDisk } from './fileHelpers';
 import { RenderedRecipe } from './model';
-import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage, renderJSXToPng } from './recipeDisplay';
-import { BREADCAST_BASE_DIR, RECIPES_FILE } from './environment';
+import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage, renderJSXToBuffer, renderJSXToPng } from './recipeDisplay';
+import path from 'path';
+import { loadRecipeSetFromDisk, loadRecipeFromDisk } from './fileHelpers';
+import { BREADCAST_BASE_DIR, RECIPES_FILE,  } from './environment';
 
 import inquirerFileTreeSelection from 'inquirer-file-tree-selection-prompt'
 
 inquirer.registerPrompt('file-tree-selection', inquirerFileTreeSelection)
-
-const loadRecipeSetFromDisk = (): RecipeSet => {
-  try {
-    if (!existsSync(RECIPES_FILE)) return {}
-    return JSON.parse(readFileSync(RECIPES_FILE, 'utf8'))
-  } catch (e) {
-    return {}
-  }
-}
 
 const getCidActiveSet = () => {
   const set: Set<string> = new Set()
@@ -70,12 +63,12 @@ const validateNewRecipeName = (value: string) => {
   return true
 }
 
-const validateChosenPinFile = (value: string) => {
+const validateChosenPinFile = (value: string, exts: string[]) => {
   const stats = lstatSync(value)
   const ext = value.split('.').pop()
   if (stats.isDirectory()) {
     return false
-  } else if (ext !== 'png' && ext !== 'json') {
+  } else if (!exts.map(e => e === ext).reduce((a, b) => a || b, false)) {
     return false
   }
   return true;
@@ -94,19 +87,23 @@ const handleAddRecipe = () => {
       message: 'Enter IPFS CID for the recipe data',
       type: 'input',
       validate: validateCid
-    },
-    {
-      name: 'backgroundCid',
-      message: 'Enter IPFS CID for the recipe\'s background image',
-      type: 'input',
-      validate: validateCid
     }
   ]).then((answers: Answers) => {
     addRecipeToRecipeSet(answers.recipeName, answers.recipeCid)
   })
 }
 
+const dataDirHasChoices = (exts: string[]): boolean => {
+  const extMatches = readdirSync(BREADCAST_BASE_DIR).filter((file) => {
+    const ext = file.split('.').pop()
+    exts.map(e => e === ext).reduce((a, b) => a || b, false)
+    return ext === 'png' || ext === 'json'
+  })
+  return extMatches.length > 0
+}
+
 const handlePinFile = () => {
+  const hasApplicableFiles = dataDirHasChoices(['png', 'json'])
   inquirer.prompt([
     {
       name: 'filePath',
@@ -115,13 +112,8 @@ const handlePinFile = () => {
       root: BREADCAST_BASE_DIR,
       onlyShowValid: true,
       hideRoot: true,
-      when: () => {
-        return readdirSync(BREADCAST_BASE_DIR).filter((file) => {
-          const ext = file.split('.').pop()
-          return ext === 'png' || ext === 'json'
-        }).length > 0
-      },
-      validate: validateChosenPinFile
+      when: () => hasApplicableFiles,
+      validate: (choice) => validateChosenPinFile(choice, ['png', 'json'])
     }
   ]).then(async (answers) => {
     const { filePath } = answers;
@@ -271,16 +263,10 @@ const promptBulkUnpin = async (pinnedNotActive: Set<string>) => {
   }
 }
 
-const pinBufferWithName = async (buffer: Buffer, name: string): Promise<string> => {
-  return pinBufferToIPFS(buffer, name).then((cid) => {
-    console.log(`Pinned ${name}: ${cid}`)
-    return cid
-  })
-}
-
 const renderAndPinJsxWithName = async (jsx: JSX.Element, name: string): Promise<string> => {
   console.log(`Rendering ${name}`)
-  const pngBuffer = await renderJSXToPng(jsx);
+  const pngBuffer = await renderJSXToBuffer(jsx);
+  console.log(`Pinning ${name}`)
   return pinBufferToIPFS(pngBuffer, name)
 }
 
@@ -338,8 +324,7 @@ const handleRenderAndPinFrame = () => {
 }
 
 const handleDownloadFrame = () => {
-  const renderedRecipeSet = loadRenderedRecipeSetFromDisk()
-
+  // TODO
 }
 
 const handleRemoveRecipe = async () => {
@@ -364,6 +349,47 @@ const handleRemoveRecipe = async () => {
   })
 }
 
+const handleCreateAndPinRecipe = async () => {
+  const hasApplicableFiles = dataDirHasChoices(['json'])
+  inquirer.prompt([
+    {
+      name: 'imageCid',
+      message: 'Enter IPFS CID for the png image background for this recipe',
+      type: 'input',
+      when: () => hasApplicableFiles,
+      validate: validateCid
+    },
+    {
+      name: 'filePath',
+      message: 'Choose the base recipe file to pin',
+      type: 'file-tree-selection',
+      root: BREADCAST_BASE_DIR,
+      onlyShowValid: true,
+      hideRoot: true,
+      when: () => hasApplicableFiles,
+      validate: (choice) => validateChosenPinFile(choice, ['json'])
+    }
+  ]).then(async (answers: Answers) => {
+    if (!answers.imageCid) {
+      console.log('No image to apply to recipe')
+      return
+    } else if (!answers.filePath) {
+      console.log('No recipe file to use')
+      return
+    }
+
+    const recipeData = loadRecipeFromDisk(answers.filePath)
+    recipeData.imageCid = answers.imageCid
+    const pinnedBuffer = Buffer.from(JSON.stringify(recipeData))
+    const cid = await pinBufferToIPFS(pinnedBuffer, path.basename(answers.filePath))
+
+    console.log(`Pinned recipe to ${cid}`)
+
+    const localCopyPath = path.join(path.dirname(answers.filePath), `${cid}${path.extname(answers.filePath)}`);
+    writeFileSync(localCopyPath, pinnedBuffer)
+  })
+}
+
 const handleAction = async (answers: Answers) => {
   switch (answers.action) {
     case 'add-recipe':
@@ -371,6 +397,12 @@ const handleAction = async (answers: Answers) => {
       break;
     case 'remove-recipe':
       handleRemoveRecipe()
+      break;
+    case 'create-and-pin-recipe':
+      handleCreateAndPinRecipe()
+      break;
+    case 'pre-render-and-pin-recipe':
+      // TODO
       break;
     case 'pin-file':
       handlePinFile()
@@ -399,6 +431,10 @@ inquirer.prompt([{
       {
         name: 'Remove recipe',
         value: 'remove-recipe'
+      },
+      {
+        name: 'Create and pin recipe',
+        value: 'create-and-pin-recipe'
       },
       {
         name: 'Pin file',

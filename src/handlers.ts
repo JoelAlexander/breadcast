@@ -21,7 +21,7 @@ const handleTitleScreen = async (frameImage: string, frameContext: BreadcastFram
         buttonsCount++;
         buttons += createFrameButton(buttonsCount, content, target)
     }
-  
+
     addButton("Ingredients",
       getIngredientsPageUrl(
         frameContext.url,
@@ -210,7 +210,7 @@ const handleCompletedScreen = async (frameImage: string, frameContext: Breadcast
         buttonsCount++;
         buttons += createFrameButton(buttonsCount, content, target)
     }
-  
+
     addButton("Return to Start", getTitlePageUrl(frameContext.url, frameContext.args.recipeCid, frameContext.args.scale))
   
     const frameHeadTemplate = html`
