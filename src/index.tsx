@@ -2,10 +2,46 @@ import { default as dotenv } from 'dotenv'
 dotenv.config()
 import { serve } from '@hono/node-server'
 import { Hono, Context } from 'hono'
-import { handleRecipeFrame } from './handlers'
-import { FrameScreen, MIN_SCALE, MAX_SCALE } from './model'
-import { getRecipeData } from './fileHelpers'
+import { FrameScreen, MIN_SCALE, MAX_SCALE, RecipeData } from './model'
+import { getRecipeData, getRecipeAssetUrl } from './fileHelpers'
 import { cid } from 'is-ipfs'
+import { BREADCAST_ENV } from './environment'
+import { downloadIPFSJson } from './ipfsHelpers'
+import { HtmlEscapedString } from 'hono/utils/html'
+import { BreadcastFrameContext, BreadcastFrameArguments } from './model'
+import { getRecipeAssetKey, getFrameResponse } from './handlers'
+import { generateErrorImage, generateFrameImage } from './recipeDisplay'
+import { handleErrorScreen } from './handlers'
+
+interface BreadcastFrameSupplier {
+  getRecipeData: (recipeCid: string) => Promise<RecipeData | undefined>
+  getFrameImage: (frameContext: BreadcastFrameContext) => Promise<string>
+  getFrameResponse: (frameImage: string, frameContext: BreadcastFrameContext) => Promise<HtmlEscapedString>
+}
+
+const PrerenderedRecipeSupplier: BreadcastFrameSupplier = {
+  getRecipeData: async (recipeCid: string) => {
+    return getRecipeData(recipeCid)
+  },
+  getFrameImage: async (frameContext: BreadcastFrameContext): Promise<string> => {
+    return getRecipeAssetUrl(frameContext.args.recipeCid, getRecipeAssetKey(frameContext))
+  },
+  getFrameResponse: async (frameImage: string, frameContext: BreadcastFrameContext) => {
+    return getFrameResponse(frameImage, frameContext)
+  }
+}
+
+const LiveRenderedRecipeSupplier: BreadcastFrameSupplier = {
+  getRecipeData: async (cid) => {
+    return downloadIPFSJson(cid)
+  },
+  getFrameImage: async (frameContext: BreadcastFrameContext): Promise<string> => {
+    return generateFrameImage(frameContext)
+  },
+  getFrameResponse: async (frameImage: string, frameContext: BreadcastFrameContext) => {
+    return getFrameResponse(frameImage, frameContext)
+  }
+}
 
 function parseScreenFromString(value: string | undefined): FrameScreen {
   const entries = Object.entries(FrameScreen);
@@ -17,19 +53,7 @@ function parseScreenFromString(value: string | undefined): FrameScreen {
   return FrameScreen.TITLE
 }
 
-export const parseFrameArgs = (c: Context) => {
-  const recipeId = c.req.param('recipeId')
-  if (!recipeId || !cid(recipeId)) {
-    console.log(`Invalid recipe cid ${recipeId}`)
-    return null
-  }
-
-  const recipeData = getRecipeData(recipeId)
-  if (!recipeData) {
-    console.log(`Recipe not found on file`)
-    return null
-  }
-
+const parseFrameArguments = (c: Context): BreadcastFrameArguments => {
   var screen = parseScreenFromString(c.req.query('screen'))
   var scale = parseInt(c.req.query('scale') ?? '1')
   if (Number.isNaN(scale) || scale < MIN_SCALE) {
@@ -44,24 +68,45 @@ export const parseFrameArgs = (c: Context) => {
   }
 
   return {
-    recipeId,
-    recipeData,
+    recipeCid: c.req.param('recipeId'),
     scale,
     screen,
     page
   }
 }
 
+const supplier = BREADCAST_ENV === 'dev' ? LiveRenderedRecipeSupplier : PrerenderedRecipeSupplier
+
 const frameApp = new Hono()
 
-const handleRecipeHtml = async (c: Context) => {
-  const parsed = parseFrameArgs(c)
+const handleRecipeHtml = async (c: Context): Promise<Response> => {
+
+  const recipeCid = c.req.param('recipeCid')
+  if (!recipeCid || !cid(recipeCid)) {
+    console.log(`Invalid recipe cid ${recipeCid}`)
+    return c.text(`Recipe not found`)
+  }
+
+  const recipeData = await supplier.getRecipeData(recipeCid)
+  if (!recipeData) {
+    console.log(`Recipe not found on file`)
+    return c.text(`Recipe not found`)
+  }
+
+  const parsed = parseFrameArguments(c)
   if (parsed == null) {
     c.status(404)
     return c.text(`Recipe not found`)
   }
-  const { recipeId, recipeData, scale, screen, page } = parsed;
-  const htmlString = await handleRecipeFrame(c.req.url, recipeId, recipeData, scale, screen, page)
+
+  const frameContext: BreadcastFrameContext = {
+    url: new URL(c.req.url),
+    args: parsed,
+    recipeData: recipeData
+  }
+
+  const frameImage = await supplier.getFrameImage(frameContext)
+  const htmlString = await supplier.getFrameResponse(frameImage, frameContext)
   return c.html(htmlString)
 }
 
@@ -69,8 +114,8 @@ const framePort = 3000
 
 console.log(`Server is running on port ${framePort}`)
 
-frameApp.get('/:recipeId', handleRecipeHtml)
-frameApp.post('/:recipeId', handleRecipeHtml)
+frameApp.get('/:recipeCid', handleRecipeHtml)
+frameApp.post('/:recipeCid', handleRecipeHtml)
 
 serve({
   fetch: frameApp.fetch,

@@ -8,13 +8,21 @@ export enum FrameScreen {
   COMPLETED = 'complete'
 }
 
-export interface RecipeSetEntry {
-  jsonCid: string
-  imageCid: string
+export interface BreadcastFrameArguments {
+  recipeCid: string
+  screen: FrameScreen
+  scale: number
+  page: number
+}
+
+export interface BreadcastFrameContext {
+  url: URL
+  args: BreadcastFrameArguments
+  recipeData: RecipeData
 }
 
 export interface RecipeSet {
-  [key: string]: RecipeSetEntry
+  [key: string]: string
 }
 
 export interface IngredientData {
@@ -31,6 +39,7 @@ export interface RecipeData {
   yields: string
   ingredients: IngredientData[]
   steps: string[]
+  imageCid: string
 }
 
 export interface RenderedRecipe {

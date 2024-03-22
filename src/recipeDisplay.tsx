@@ -1,5 +1,18 @@
 import React from 'react';
 import { IngredientData, RecipeData, getIngredientPages } from './model';
+import { downloadBase64PngImage } from './fileHelpers';
+import { BreadcastFrameContext, FrameScreen } from './model';
+import satori from 'satori';
+import { Browser, Page } from 'puppeteer';
+import puppeteer from 'puppeteer';
+import { join } from 'path';
+import { readFileSync } from 'fs';
+
+const BASE_DIR = process.cwd()
+const FONTS_PATH = join(BASE_DIR, 'fonts')
+const headingFontPath = join(FONTS_PATH, 'DMSerifDisplay-Regular.ttf')
+const regularFontPath = join(FONTS_PATH, 'SplineSansMono-Light.ttf')
+const smallFontPath = join(FONTS_PATH, 'SplineSansMono-Regular.ttf')
 
 export const CircularHoursIndicator = ({ hours } : { hours: number }) => {
     const degrees = (hours / 24) * 360
@@ -100,7 +113,7 @@ export const generateTitlePage = (recipeData: RecipeData, scale: number, backgro
             height: '100vh',
             width: '100vw',
         }}>
-            <img src={`data:image/png;base64,${backgroundImageBase64}`} style={{
+            <img src={backgroundImageBase64} style={{
                 position: 'absolute',
                 bottom: 0,
                 right: 0,
@@ -259,3 +272,110 @@ export const generateCompletedPage = (): JSX.Element => {
         </div>
     );
 };
+
+export const generateErrorPage = (): JSX.Element => {
+  return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '4vh 2vw' }}>
+          <p style={{ fontFamily: 'regular', fontSize: '1.6em', textAlign: 'center', margin: '2vh 0' }}>
+              For some reason we cannot display the requested content.
+          </p>
+          <p style={{ fontFamily: 'regular', fontSize: '1.4em', textAlign: 'center' }}>
+              Please leave feedback and/or try again later.
+          </p>
+      </div>
+  );
+};
+
+var browser: Browser;
+var page: Page;
+
+export const renderJSXToPng = async (jsx: JSX.Element): Promise<Buffer> => {
+  if (!browser) {
+    browser = await puppeteer.launch()
+  }
+
+  if (!page) {
+    page = await browser.newPage()
+  }
+
+  async function convertSvgToPng(svgContent: string) {
+    await page.setContent(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { margin: 0; padding: 0; }
+          svg { display: block; }
+        </style>
+      </head>
+      <body>${svgContent}</body>
+      </html>
+    `);
+
+    await page.setViewport({
+      width: 764,
+      height: 400,
+    });
+
+    return await page.screenshot({type: 'png'});
+  }
+
+  const renderJSX = async (h: JSX.Element) => {
+    const svg = await satori(h, {
+      width: 764,
+      height: 400,
+      fonts: [
+        {
+          name: 'heading',
+          data: readFileSync(headingFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+        {
+          name: 'regular',
+          data: readFileSync(regularFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+        {
+          name: 'small',
+          data: readFileSync(smallFontPath),
+          weight: 200,
+          style: 'normal',
+        },
+      ],
+    })
+    return await convertSvgToPng(svg)
+  }
+
+  return await renderJSX(jsx)
+}
+
+export const renderJSXToPngBase64 = async (jsx: JSX.Element): Promise<string> => {
+  const pngBuffer = await renderJSXToPng(jsx)
+  return `data:image/png;base64,${pngBuffer.toString('base64')}`
+}
+
+export const generateFrameJsx = async (frameContext: BreadcastFrameContext): Promise<JSX.Element> => {
+  switch (frameContext.args.screen) {
+      default:
+      case FrameScreen.TITLE:
+          const backgroundImageBase64 = await downloadBase64PngImage(frameContext.recipeData.imageCid)
+          return generateTitlePage(frameContext.recipeData, frameContext.args.scale, backgroundImageBase64)
+      case FrameScreen.INGREDIENTS:
+          return generateIngredientsPage(frameContext.recipeData, frameContext.args.scale, frameContext.args.page)
+      case FrameScreen.STEPS:
+          return generateStepPage(frameContext.recipeData, frameContext.args.scale, frameContext.args.page)
+      case FrameScreen.COMPLETED:
+          return generateCompletedPage()
+  }
+}
+
+export const generateFrameImage = async (frameContext: BreadcastFrameContext): Promise<string> => {
+  const jsx = await generateFrameJsx(frameContext)
+  return renderJSXToPngBase64(jsx)
+}
+
+export const generateErrorImage = async (): Promise<string> => {
+  return renderJSXToPngBase64(generateErrorPage())
+}

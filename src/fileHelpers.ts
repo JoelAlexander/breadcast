@@ -24,30 +24,26 @@ export const getRenderedRecipeSet = (): RenderedRecipeSet => {
   return loaded
 }
 
-export const getRecipeData = (recipeId: string): RecipeData | undefined => {
+export const recipeDataExists = (recipeId: string): boolean => {
   const recipeSet = getRenderedRecipeSet()
-  if (recipeSet[recipeId]) {
-    return recipeSet[recipeId].recipeData
-  } else {
-    return undefined
-  }
+  return Boolean(recipeSet[recipeId]?.recipeData)
 }
 
-export const getRecipeAssetCid = (recipeId: string, key: string): string | undefined => {
+export const getRecipeData = (recipeId: string): RecipeData => {
+  const recipeSet = getRenderedRecipeSet()
+  return recipeSet[recipeId]?.recipeData
+}
+
+export const getRecipeAssetCid = (recipeId: string, key: string): string => {
   const recipeData = getRenderedRecipeSet()
-  if (recipeData[recipeId]) {
-    return recipeData[recipeId].assetCids[key]
-  } else {
-    return undefined
-  }
+  return recipeData[recipeId].assetCids[key]
 }
 
-export const getRecipeAssetUrl = (recipeId: string, key: string): string | undefined => {
-  const cid = getRecipeAssetCid(recipeId, key)
-  return cid ? getIPFSUrl(cid) : undefined
+export const getRecipeAssetUrl = (recipeId: string, key: string): string => {
+  return getIPFSUrl(getRecipeAssetCid(recipeId, key))
 }
 
-export const downloadBase64Image = async (cid: string): Promise<string> => {
+export const downloadBase64PngImage = async (cid: string): Promise<string> => {
   const buffer = await downloadIPFSBuffer(cid)
-  return buffer.toString('base64')
+  return `data:image/png;base64,${buffer.toString('base64')}`
 }

@@ -1,29 +1,18 @@
 import { default as dotenv } from 'dotenv'
 dotenv.config()
 import inquirer, { Answers } from "inquirer"
-import { join } from 'path';
 import { readFileSync, writeFileSync, existsSync, lstatSync, readdirSync } from 'fs';
-import { MAX_SCALE, MIN_SCALE, RecipeData, RecipeSet, RecipeSetEntry, getCompletedImageKey, getIngredientPages, getIngredientsImageKey, getStepImageKey, getTitleImageKey } from './model';
+import { MAX_SCALE, MIN_SCALE, RecipeData, RecipeSet, getCompletedImageKey, getIngredientPages, getIngredientsImageKey, getStepImageKey, getTitleImageKey } from './model';
 import { cid } from 'is-ipfs';
 import { downloadIPFSJson, pinBufferToIPFS, pinListEntire, unpin } from './ipfsHelpers';
-import { downloadBase64Image, loadRenderedRecipeSetFromDisk } from './fileHelpers';
+import { downloadBase64PngImage, loadRenderedRecipeSetFromDisk } from './fileHelpers';
 import { RenderedRecipe } from './model';
-import puppeteer, { Page } from 'puppeteer';
-import satori from 'satori'
-import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage } from './recipeDisplay';
+import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage, renderJSXToPng } from './recipeDisplay';
 import { BREADCAST_BASE_DIR, RECIPES_FILE } from './environment';
 
 import inquirerFileTreeSelection from 'inquirer-file-tree-selection-prompt'
-import { fileFromPath } from 'openai';
-import { readdir } from 'fs/promises';
 
 inquirer.registerPrompt('file-tree-selection', inquirerFileTreeSelection)
-
-const BASE_DIR = process.cwd()
-const FONTS_PATH = join(BASE_DIR, 'fonts')
-const headingFontPath = join(FONTS_PATH, 'DMSerifDisplay-Regular.ttf')
-const regularFontPath = join(FONTS_PATH, 'SplineSansMono-Light.ttf')
-const smallFontPath = join(FONTS_PATH, 'SplineSansMono-Regular.ttf')
 
 const loadRecipeSetFromDisk = (): RecipeSet => {
   try {
@@ -38,12 +27,13 @@ const getCidActiveSet = () => {
   const set: Set<string> = new Set()
   const recipeSet = loadRecipeSetFromDisk()
   const renderedRecipeSet = loadRenderedRecipeSetFromDisk()
-  Object.values(recipeSet).forEach(({ jsonCid, imageCid }) => {
-    set.add(jsonCid)
-    set.add(imageCid)
+  Object.values(recipeSet).forEach(async (recipeDataCid) => {
+    set.add(recipeDataCid)
+    const recipeData: RecipeData = await downloadIPFSJson(recipeDataCid)
+    set.add(recipeData.imageCid)
   })
-  Object.entries(renderedRecipeSet).forEach(([jsonCid, recipeData]) => {
-    set.add(jsonCid)
+  Object.entries(renderedRecipeSet).forEach(([recipeDataCid, recipeData]) => {
+    set.add(recipeDataCid)
     Object.values(recipeData.assetCids).forEach((cid) => {
       set.add(cid)
     })
@@ -51,9 +41,9 @@ const getCidActiveSet = () => {
   return set
 }
 
-const addRecipeToRecipeSet = (recipeName: string, recipeDataCid: string, recipeBackgroundCid: string) => {
+const addRecipeToRecipeSet = (recipeName: string, recipeDataCid: string) => {
   const recipeSet = loadRecipeSetFromDisk()
-  recipeSet[recipeName] = { jsonCid: recipeDataCid, imageCid: recipeBackgroundCid }
+  recipeSet[recipeName] = recipeDataCid
   writeFileSync(RECIPES_FILE, JSON.stringify(recipeSet, null, 2))
 }
 
@@ -112,7 +102,7 @@ const handleAddRecipe = () => {
       validate: validateCid
     }
   ]).then((answers: Answers) => {
-    addRecipeToRecipeSet(answers.recipeName, answers.recipeCid, answers.backgroundCid)
+    addRecipeToRecipeSet(answers.recipeName, answers.recipeCid)
   })
 }
 
@@ -288,95 +278,40 @@ const pinBufferWithName = async (buffer: Buffer, name: string): Promise<string> 
   })
 }
 
-const renderAndPinJsxWithName = async (page: Page, jsx: JSX.Element, name: string): Promise<string> => {
-
-  async function convertSvgToPng(svgContent: string) {
-    await page.setContent(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          body { margin: 0; padding: 0; }
-          svg { display: block; }
-        </style>
-      </head>
-      <body>${svgContent}</body>
-      </html>
-    `);
-
-    await page.setViewport({
-      width: 764,
-      height: 400,
-    });
-
-    const screenshotBuffer = await page.screenshot({type: 'png'});
-    return screenshotBuffer;
-  }
-
-  const renderJSX = async (h: JSX.Element) => {
-    const svg = await satori(h, {
-      width: 764,
-      height: 400,
-      fonts: [
-        {
-          name: 'heading',
-          data: readFileSync(headingFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-        {
-          name: 'regular',
-          data: readFileSync(regularFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-        {
-          name: 'small',
-          data: readFileSync(smallFontPath),
-          weight: 200,
-          style: 'normal',
-        },
-      ],
-    })
-    return await convertSvgToPng(svg)
-  }
-
+const renderAndPinJsxWithName = async (jsx: JSX.Element, name: string): Promise<string> => {
   console.log(`Rendering ${name}`)
-  const pngBuffer = await renderJSX(jsx)
+  const pngBuffer = await renderJSXToPng(jsx);
   return pinBufferToIPFS(pngBuffer, name)
 }
 
-const renderAndPinFrame = async (recipeSetEntry: RecipeSetEntry): Promise<RenderedRecipe> => {
-  const browser = await puppeteer.launch(); // Super heavy
-  const page = await browser.newPage()
-
+const renderAndPinFrame = async (recipeDataCid: string): Promise<RenderedRecipe> => {
   console.log(`Rendering environment set up.`)
 
-  const recipeData = await downloadIPFSJson(recipeSetEntry.jsonCid) as RecipeData
+  const recipeData = await downloadIPFSJson(recipeDataCid) as RecipeData
   const ingredientPageCount = getIngredientPages(recipeData).length
-  const backgroundImageBase64 = await downloadBase64Image(recipeSetEntry.imageCid)
+  const backgroundImageBase64 = await downloadBase64PngImage(recipeData.imageCid)
   const renderedRecipe: RenderedRecipe = { recipeData: recipeData, assetCids: {} }
 
   for (var scale = MIN_SCALE; scale <= MAX_SCALE; scale++) {
     
     const titleKey = getTitleImageKey(scale)
     const titlePageJsx = generateTitlePage(recipeData, scale, backgroundImageBase64)
-    renderedRecipe.assetCids[titleKey] = await renderAndPinJsxWithName(page, titlePageJsx, titleKey)
+    renderedRecipe.assetCids[titleKey] = await renderAndPinJsxWithName(titlePageJsx, titleKey)
 
     for (var ingredientPage = 1; ingredientPage <= ingredientPageCount; ingredientPage++) {
       const pageKey = getIngredientsImageKey(scale, ingredientPage)
       const ingredientsPageJsx = generateIngredientsPage(recipeData, scale, ingredientPage)
-      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(page, ingredientsPageJsx, pageKey)
+      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(ingredientsPageJsx, pageKey)
     }
 
     for (var step = 1; step <= recipeData.steps.length; step++) {
       const pageKey = getStepImageKey(scale, step)
       const stepPageJsx = generateStepPage(recipeData, scale, step)
-      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(page, stepPageJsx, pageKey)
+      renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(stepPageJsx, pageKey)
     }
   }
 
-  renderAndPinJsxWithName(page, generateCompletedPage(), getCompletedImageKey())
+  renderAndPinJsxWithName(generateCompletedPage(), getCompletedImageKey())
 
   return renderedRecipe
 }

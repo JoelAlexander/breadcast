@@ -1,7 +1,8 @@
-import { MAX_SCALE, MIN_SCALE, RecipeData, getCompletedImageKey, getCompletedPageUrl, getIngredientPages, getIngredientsImageKey, getIngredientsPageUrl, getStepImageKey, getStepsPageUrl, getTitleImageKey, getTitlePageUrl } from "./model"
+import { BreadcastFrameContext, MAX_SCALE, MIN_SCALE, RecipeData, getCompletedImageKey, getCompletedPageUrl, getIngredientPages, getIngredientsImageKey, getIngredientsPageUrl, getStepImageKey, getStepsPageUrl, getTitleImageKey, getTitlePageUrl } from "./model"
 import { html, raw } from 'hono/html'
 import { FrameScreen } from './model';
 import { getRecipeAssetCid, getRecipeAssetUrl } from "./fileHelpers";
+import { generateErrorPage, generateErrorImage } from "./recipeDisplay";
 
 const createFrameButton = (buttonNumber: number, content: string, target: string = '') => {
     var button = `<meta property="fc:frame:button:${buttonNumber}" content="${content}" />`
@@ -12,10 +13,7 @@ const createFrameButton = (buttonNumber: number, content: string, target: string
     return button
 }
   
-const handleTitleScreen = async (recipeId: string, requestUrl: string, scale: number) => {
-    const url = new URL(requestUrl)
-    console.log("Getting frame image")
-    const frameImage = getRecipeAssetUrl(recipeId, getTitleImageKey(scale))
+const handleTitleScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
   
@@ -24,15 +22,32 @@ const handleTitleScreen = async (recipeId: string, requestUrl: string, scale: nu
         buttons += createFrameButton(buttonsCount, content, target)
     }
   
-    addButton("Ingredients", getIngredientsPageUrl(url, recipeId, scale, 1))
-    addButton("Steps", getStepsPageUrl(url, recipeId, scale, 1))
+    addButton("Ingredients",
+      getIngredientsPageUrl(
+        frameContext.url,
+        frameContext.args.recipeCid,
+        frameContext.args.scale,
+        1))
+
+    addButton("Steps",
+      getStepsPageUrl(
+        frameContext.url, 
+        frameContext.args.recipeCid,
+        frameContext.args.scale,
+        1))
   
-    if (scale > MIN_SCALE) {
-        addButton("Scale -", getTitlePageUrl(url, recipeId, Math.min(MAX_SCALE, scale - 1)))
+    if (frameContext.args.scale > MIN_SCALE) {
+        addButton("Scale -", getTitlePageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          Math.min(MAX_SCALE, frameContext.args.scale - 1)))
     }
 
-    if (scale < MAX_SCALE) {
-        addButton("Scale +", getTitlePageUrl(url, recipeId, Math.max(MIN_SCALE, scale + 1)))
+    if (frameContext.args.scale < MAX_SCALE) {
+        addButton("Scale +", getTitlePageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          Math.max(MIN_SCALE, frameContext.args.scale + 1)))
     }
   
     const frameHeadTemplate = html`
@@ -40,7 +55,7 @@ const handleTitleScreen = async (recipeId: string, requestUrl: string, scale: nu
             <head>
                 <meta property="og:image" content="${frameImage}" />
                 <meta property="fc:frame" content="vNext" />
-                <meta property="fc:frame:post_url" content="${requestUrl}" />
+                <meta property="fc:frame:post_url" content="${frameContext.url}" />
                 <meta property="fc:frame:image" content="${frameImage}" />
                 ${raw(buttons)}
             </head>
@@ -50,9 +65,7 @@ const handleTitleScreen = async (recipeId: string, requestUrl: string, scale: nu
     return frameHeadTemplate
 }
   
-const handleIngredientsScreen = async (recipeId: string,  recipeData: RecipeData, requestUrl: string, scale: number, page: number) => {
-    const url = new URL(requestUrl)
-    const frameImage = getRecipeAssetUrl(recipeId, getIngredientsImageKey(scale, page))
+const handleIngredientsScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
   
@@ -62,30 +75,48 @@ const handleIngredientsScreen = async (recipeId: string,  recipeData: RecipeData
     }
   
     const getPageUrl = (pageNum: number) => {
-        return getIngredientsPageUrl(url, recipeId, scale, pageNum)
+        return getIngredientsPageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          frameContext.args.scale,
+          pageNum)
     }
   
-    const pages = getIngredientPages(recipeData)
-    const selectedPageNumber = Math.max(1, Math.min(pages.length, page))
+    const pages = getIngredientPages(frameContext.recipeData)
+    const selectedPageNumber = Math.max(1, Math.min(pages.length, frameContext.args.page))
     
     if (selectedPageNumber > 1) {
         addButton("<", getPageUrl(selectedPageNumber - 1))
     } else {
-        addButton("Back", getTitlePageUrl(url, recipeId, scale))
+        addButton("Back", getTitlePageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          frameContext.args.scale))
     }
   
     if (pages.length > selectedPageNumber) {
         addButton(">", getPageUrl(selectedPageNumber + 1))
     } else {
-        addButton("Begin", getStepsPageUrl(url, recipeId, scale, 1))
+        addButton("Begin", getStepsPageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          frameContext.args.scale, 1))
     }
 
-    if (scale > MIN_SCALE) {
-        addButton("Scale -", getIngredientsPageUrl(url, recipeId, Math.min(MAX_SCALE, scale - 1), page))
+    if (frameContext.args.scale > MIN_SCALE) {
+        addButton("Scale -", getIngredientsPageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          Math.min(MAX_SCALE, frameContext.args.scale - 1),
+          frameContext.args.page))
     }
 
-    if (scale < MAX_SCALE) {
-        addButton("Scale +", getIngredientsPageUrl(url, recipeId, Math.max(MIN_SCALE, scale + 1), page))
+    if (frameContext.args.scale < MAX_SCALE) {
+        addButton("Scale +", getIngredientsPageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          Math.max(MIN_SCALE, frameContext.args.scale + 1),
+          frameContext.args.page))
     }
   
     const frameHeadTemplate = html`
@@ -93,7 +124,7 @@ const handleIngredientsScreen = async (recipeId: string,  recipeData: RecipeData
             <head>
                 <meta property="og:image" content="${frameImage}" />
                 <meta property="fc:frame" content="vNext" />
-                <meta property="fc:frame:post_url" content="${url}" />
+                <meta property="fc:frame:post_url" content="${frameContext.url}" />
                 <meta property="fc:frame:image" content="${frameImage}" />
                 ${raw(buttons)}
             </head>
@@ -103,9 +134,7 @@ const handleIngredientsScreen = async (recipeId: string,  recipeData: RecipeData
     return frameHeadTemplate
 }
   
-const handleStepScreen = async (recipeId: string, recipeData: RecipeData, requestUrl: string, scale: number, step: number) => {
-    const url = new URL(requestUrl)
-    const frameImage = getRecipeAssetUrl(recipeId, getStepImageKey(scale, step))
+const handleStepScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
   
@@ -115,28 +144,47 @@ const handleStepScreen = async (recipeId: string, recipeData: RecipeData, reques
     }
   
     const getStepUrl = (stepNum: number) => {
-        return getStepsPageUrl(url, recipeId, scale, stepNum)
+        return getStepsPageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          frameContext.args.scale, stepNum)
     }
   
-    const selectedStepNumber = Math.max(1, Math.min(recipeData.steps.length, step))
+    const selectedStepNumber = Math.max(1, Math.min(frameContext.recipeData.steps.length, frameContext.args.page))
     if (selectedStepNumber > 1) {
         addButton("<", getStepUrl(selectedStepNumber - 1))
     } else {
-        addButton("Back", getTitlePageUrl(url, recipeId, scale))
+        addButton("Back",
+          getTitlePageUrl(
+            frameContext.url,
+            frameContext.args.recipeCid,
+            frameContext.args.scale))
     }
   
-    if (recipeData.steps.length > selectedStepNumber) {
+    if (frameContext.recipeData.steps.length > selectedStepNumber) {
         addButton(">", getStepUrl(selectedStepNumber + 1))
     } else {
-        addButton("Finished 🎉", getCompletedPageUrl(url, recipeId, scale))
+        addButton("Finished 🎉",
+          getCompletedPageUrl(
+            frameContext.url,
+            frameContext.args.recipeCid,
+            frameContext.args.scale))
     }
 
-    if (scale > MIN_SCALE) {
-        addButton("Scale -", getStepsPageUrl(url, recipeId, Math.min(MAX_SCALE, scale - 1), step))
+    if (frameContext.args.scale > MIN_SCALE) {
+        addButton("Scale -", getStepsPageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          Math.min(MAX_SCALE, frameContext.args.scale - 1),
+          frameContext.args.page))
     }
 
-    if (scale < MAX_SCALE) {
-        addButton("Scale +", getStepsPageUrl(url, recipeId, Math.max(MIN_SCALE, scale + 1), step))
+    if (frameContext.args.scale < MAX_SCALE) {
+        addButton("Scale +", getStepsPageUrl(
+          frameContext.url,
+          frameContext.args.recipeCid,
+          Math.max(MIN_SCALE, frameContext.args.scale + 1),
+          frameContext.args.page))
     }
   
     const frameHeadTemplate = html`
@@ -144,7 +192,7 @@ const handleStepScreen = async (recipeId: string, recipeData: RecipeData, reques
           <head>
             <meta property="og:image" content="${frameImage}" />
             <meta property="fc:frame" content="vNext" />
-            <meta property="fc:frame:post_url" content="${url}" />
+            <meta property="fc:frame:post_url" content="${frameContext.url}" />
             <meta property="fc:frame:image" content="${frameImage}" />
             ${raw(buttons)}
           </head>
@@ -154,9 +202,7 @@ const handleStepScreen = async (recipeId: string, recipeData: RecipeData, reques
     return frameHeadTemplate
 }
   
-const handleCompletedScreen = async (recipeId: string, requestUrl: string, scale: number) => {
-    const url = new URL(requestUrl)
-    const frameImage = getCompletedImageKey()
+const handleCompletedScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
   
@@ -165,14 +211,14 @@ const handleCompletedScreen = async (recipeId: string, requestUrl: string, scale
         buttons += createFrameButton(buttonsCount, content, target)
     }
   
-    addButton("Return to Start", getTitlePageUrl(url, recipeId, scale))
+    addButton("Return to Start", getTitlePageUrl(frameContext.url, frameContext.args.recipeCid, frameContext.args.scale))
   
     const frameHeadTemplate = html`
         <html lang="en">
             <head>
                 <meta property="og:image" content="${frameImage}" />
                 <meta property="fc:frame" content="vNext" />
-                <meta property="fc:frame:post_url" content="${url}" />
+                <meta property="fc:frame:post_url" content="${frameContext.url}" />
                 <meta property="fc:frame:image" content="${frameImage}" />
                 ${raw(buttons)}
             </head>
@@ -182,15 +228,45 @@ const handleCompletedScreen = async (recipeId: string, requestUrl: string, scale
     return frameHeadTemplate
 }
 
-export const handleRecipeFrame = async (postUrl: string, recipeId: string, recipeData: RecipeData, scale: number, screen: FrameScreen, page: number) => {
-    switch (screen) {
-        case FrameScreen.TITLE:
-            return await handleTitleScreen(recipeId, postUrl, scale)
-        case FrameScreen.INGREDIENTS:
-            return await handleIngredientsScreen(recipeId, recipeData, postUrl, scale, page)
-        case FrameScreen.STEPS:
-            return await handleStepScreen(recipeId, recipeData, postUrl,  scale, page)
-        case FrameScreen.COMPLETED:
-            return await handleCompletedScreen(recipeId, postUrl, scale)
-    }
+export const handleErrorScreen = async (frameImage: string) => {
+
+  const frameHeadTemplate = html`
+      <html lang="en">
+          <head>
+              <meta property="og:image" content="${frameImage}" />
+              <meta property="fc:frame" content="vNext" />
+              <meta property="fc:frame:image" content="${frameImage}" />
+          </head>
+          <body />
+      </html>`
+
+  return frameHeadTemplate
+}
+
+export const getRecipeAssetKey = (frameContext: BreadcastFrameContext) => {
+  switch (frameContext.args.screen) {
+      default:
+      case FrameScreen.TITLE:
+          return getTitleImageKey(frameContext.args.scale)
+      case FrameScreen.INGREDIENTS:
+          return getIngredientsImageKey(frameContext.args.scale, frameContext.args.page)
+      case FrameScreen.STEPS:
+          return getStepImageKey(frameContext.args.scale, frameContext.args.page)
+      case FrameScreen.COMPLETED:
+          return getCompletedImageKey()
+  }
+}
+
+export const getFrameResponse = (frameImage: string, frameContext: BreadcastFrameContext) => {
+  switch (frameContext.args.screen) {
+      default:
+      case FrameScreen.TITLE:
+          return handleTitleScreen(frameImage, frameContext)
+      case FrameScreen.INGREDIENTS:
+          return handleIngredientsScreen(frameImage, frameContext)
+      case FrameScreen.STEPS:
+          return handleStepScreen(frameImage, frameContext)
+      case FrameScreen.COMPLETED:
+          return handleCompletedScreen(frameImage, frameContext)
+  }
 }
