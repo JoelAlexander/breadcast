@@ -5,9 +5,9 @@ import { readFileSync, writeFileSync, lstatSync, readdirSync } from 'fs';
 import { MAX_SCALE, MIN_SCALE, RecipeData, getCompletedImageKey, getIngredientPages, getIngredientsImageKey, getStepImageKey, getTitleImageKey } from './model';
 import { cid } from 'is-ipfs';
 import { downloadIPFSJson, pinBufferToIPFS, pinListEntire, unpin } from './ipfsHelpers';
-import { downloadBase64PngImage, loadRenderedRecipeSetFromDisk } from './fileHelpers';
+import { getBase64PngImage, loadRenderedRecipeSetFromDisk } from './fileHelpers';
 import { RenderedRecipe } from './model';
-import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage, renderJSXToBuffer, renderJSXToPng } from './recipeDisplay';
+import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage, getPinnedFrameImage, renderJSXToPngBuffer } from './recipeDisplay';
 import path from 'path';
 import { loadRecipeSetFromDisk, loadRecipeFromDisk } from './fileHelpers';
 import { BREADCAST_BASE_DIR, RECIPES_FILE,  } from './environment';
@@ -265,7 +265,7 @@ const promptBulkUnpin = async (pinnedNotActive: Set<string>) => {
 
 const renderAndPinJsxWithName = async (jsx: JSX.Element, name: string): Promise<string> => {
   console.log(`Rendering ${name}`)
-  const pngBuffer = await renderJSXToBuffer(jsx);
+  const pngBuffer = await renderJSXToPngBuffer(jsx);
   console.log(`Pinning ${name}`)
   return pinBufferToIPFS(pngBuffer, name)
 }
@@ -275,29 +275,29 @@ const renderAndPinFrame = async (recipeDataCid: string): Promise<RenderedRecipe>
 
   const recipeData = await downloadIPFSJson(recipeDataCid) as RecipeData
   const ingredientPageCount = getIngredientPages(recipeData).length
-  const backgroundImageBase64 = await downloadBase64PngImage(recipeData.imageCid)
+  const backgroundImageBase64 = await getBase64PngImage(recipeData.imageCid)
   const renderedRecipe: RenderedRecipe = { recipeData: recipeData, assetCids: {} }
 
   for (var scale = MIN_SCALE; scale <= MAX_SCALE; scale++) {
     
-    const titleKey = getTitleImageKey(scale)
+    const titleKey = getTitleImageKey(recipeDataCid, scale)
     const titlePageJsx = generateTitlePage(recipeData, scale, backgroundImageBase64)
     renderedRecipe.assetCids[titleKey] = await renderAndPinJsxWithName(titlePageJsx, titleKey)
 
     for (var ingredientPage = 1; ingredientPage <= ingredientPageCount; ingredientPage++) {
-      const pageKey = getIngredientsImageKey(scale, ingredientPage)
-      const ingredientsPageJsx = generateIngredientsPage(recipeData, scale, ingredientPage)
+      const pageKey = getIngredientsImageKey(recipeDataCid, scale, ingredientPage)
+      const ingredientsPageJsx = generateIngredientsPage(recipeData, scale, ingredientPage, backgroundImageBase64)
       renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(ingredientsPageJsx, pageKey)
     }
 
     for (var step = 1; step <= recipeData.steps.length; step++) {
-      const pageKey = getStepImageKey(scale, step)
-      const stepPageJsx = generateStepPage(recipeData, scale, step)
+      const pageKey = getStepImageKey(recipeDataCid, scale, step)
+      const stepPageJsx = generateStepPage(recipeData, scale, step, backgroundImageBase64)
       renderedRecipe.assetCids[pageKey] = await renderAndPinJsxWithName(stepPageJsx, pageKey)
     }
   }
 
-  renderAndPinJsxWithName(generateCompletedPage(), getCompletedImageKey())
+  renderAndPinJsxWithName(generateCompletedPage(backgroundImageBase64), getCompletedImageKey(recipeDataCid))
 
   return renderedRecipe
 }

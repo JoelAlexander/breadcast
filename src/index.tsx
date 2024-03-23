@@ -10,7 +10,7 @@ import { downloadIPFSJson } from './ipfsHelpers'
 import { HtmlEscapedString } from 'hono/utils/html'
 import { BreadcastFrameContext, BreadcastFrameArguments } from './model'
 import { getRecipeAssetKey, getFrameResponse } from './handlers'
-import { generateErrorImage, generateFrameImage } from './recipeDisplay'
+import { getPinnedFrameImage, generateFrameImageDataUri } from './recipeDisplay'
 import { url } from 'inspector'
 
 interface BreadcastFrameSupplier {
@@ -39,7 +39,7 @@ const LiveRenderedRecipeSupplier: BreadcastFrameSupplier = {
     return downloadIPFSJson(cid)
   },
   getFrameImage: async (frameContext: BreadcastFrameContext): Promise<string> => {
-    return generateFrameImage(frameContext)
+    return getPinnedFrameImage(frameContext)
   },
   getFrameResponse: async (frameImage: string, frameContext: BreadcastFrameContext) => {
     return getFrameResponse(frameImage, frameContext)

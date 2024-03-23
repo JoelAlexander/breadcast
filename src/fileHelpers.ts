@@ -84,3 +84,12 @@ export const downloadBase64PngImage = async (cid: string): Promise<string> => {
   const pngBuffer = await downloadIPFSBuffer(cid)
   return pngDataUri(pngBuffer)
 }
+
+// Want to evict this sometime????  You like memory leaks????
+const cachedBase64Pngs: {[key: string]: string} = {}
+export const getBase64PngImage = async (cid: string): Promise<string> => {
+  if (!cachedBase64Pngs[cid]) {
+    cachedBase64Pngs[cid] = await downloadBase64PngImage(cid)
+  }
+  return cachedBase64Pngs[cid]
+}

@@ -247,13 +247,13 @@ export const getRecipeAssetKey = (frameContext: BreadcastFrameContext) => {
   switch (frameContext.args.screen) {
       default:
       case FrameScreen.TITLE:
-          return getTitleImageKey(frameContext.args.scale)
+          return getTitleImageKey(frameContext.args.recipeCid, frameContext.args.scale)
       case FrameScreen.INGREDIENTS:
-          return getIngredientsImageKey(frameContext.args.scale, frameContext.args.page)
+          return getIngredientsImageKey(frameContext.args.recipeCid, frameContext.args.scale, frameContext.args.page)
       case FrameScreen.STEPS:
-          return getStepImageKey(frameContext.args.scale, frameContext.args.page)
+          return getStepImageKey(frameContext.args.recipeCid, frameContext.args.scale, frameContext.args.page)
       case FrameScreen.COMPLETED:
-          return getCompletedImageKey()
+          return getCompletedImageKey(frameContext.args.recipeCid)
   }
 }
 

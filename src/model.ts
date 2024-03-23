@@ -30,13 +30,24 @@ export interface IngredientData {
   quantity: number
   unit: string
 }
-  
+
+export interface EquipmentData {
+  name: string
+  count: number
+  scalesWithRecipe: boolean
+}
+
+export interface StepData {
+  text: string
+}
+
 export interface RecipeData {
   title: string
   description: string
-  totalTime: number
-  activeTime: number
+  totalTimeMinutes: number
+  activeTimeMinutes: number
   yields: string
+  equipment: EquipmentData[]
   ingredients: IngredientData[]
   steps: string[]
   imageCid: string
@@ -78,18 +89,18 @@ export const getCompletedPageUrl = (originUrl: URL, recipeCid: string, scale: nu
   return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.COMPLETED}`
 }
 
-export const getTitleImageKey = (scale: number) => {
-  return `title-${scale}`
+export const getTitleImageKey = (recipeCid: string, scale: number) => {
+  return `${recipeCid}-title-${scale}`
 }
 
-export const getIngredientsImageKey = (scale: number, page: number) => {
-  return `ingredients-${scale}-${page}`
+export const getIngredientsImageKey = (recipeCid: string, scale: number, page: number) => {
+  return `${recipeCid}-ingredients-${scale}-${page}`
 }
 
-export const getStepImageKey = (scale: number, step: number) => {
-  return `step-${scale}-${step}`
+export const getStepImageKey = (recipeCid: string, scale: number, step: number) => {
+  return `${recipeCid}-step-${scale}-${step}`
 }
 
-export const getCompletedImageKey = () => {
-  return `completed`
+export const getCompletedImageKey = (recipeCid: string) => {
+  return `${recipeCid}-completed`
 }
