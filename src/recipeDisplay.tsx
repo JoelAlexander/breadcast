@@ -151,7 +151,7 @@ export const generateTitlePage = (recipeData: RecipeData, scale: number, backgro
         <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1, width: '68%' }}>
           <p style={{ fontFamily: 'text', fontSize: '1.6em' }}>{descriptionParsed}</p>
           <p style={{ fontFamily: 'label', fontSize: '1.6em' }}>
-            <span>{convertTime(recipeData.activeTimeMinutes)}</span> active / {convertTime(recipeData.totalTimeMinutes)} total</p>
+            <span style={{ marginRight: '0.25rem' }}>{convertTime(recipeData.activeTimeMinutes)}</span>active / {convertTime(recipeData.totalTimeMinutes)} total</p>
           <p style={{ fontFamily: 'label', fontSize: '1.6em' }}>{yieldsParsed}</p>
         </div>
       </div>
