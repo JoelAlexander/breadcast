@@ -74,19 +74,19 @@ export const getIngredientPages = (recipeData: RecipeData) => {
 }
 
 export const getTitlePageUrl = (originUrl: URL, recipeCid: string, scale: number) => {
-  return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.TITLE}`
+  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${FrameScreen.TITLE}`
 }
 
 export const getIngredientsPageUrl = (originUrl: URL, recipeCid: string, scale: number, page: number) => {
-  return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.INGREDIENTS}&page=${page}`
+  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${FrameScreen.INGREDIENTS}&page=${page}`
 }
 
 export const getStepsPageUrl = (originUrl: URL, recipeCid: string, scale: number, page: number) => {
-  return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.STEPS}&page=${page}`
+  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${FrameScreen.STEPS}&page=${page}`
 }
 
 export const getCompletedPageUrl = (originUrl: URL, recipeCid: string, scale: number) => {
-  return `${originUrl.origin}/${recipeCid}?scale=${scale}&screen=${FrameScreen.COMPLETED}`
+  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${FrameScreen.COMPLETED}`
 }
 
 export const getTitleImageKey = (recipeCid: string, scale: number) => {
