@@ -12,8 +12,10 @@ import { getRecipeAssetKey } from './handlers';
 const BASE_DIR = process.cwd()
 const FONTS_PATH = join(BASE_DIR, 'fonts')
 const headingFontPath = join(FONTS_PATH, 'DMSerifDisplay-Regular.ttf')
-const regularFontPath = join(FONTS_PATH, 'SplineSansMono-Light.ttf')
-const smallFontPath = join(FONTS_PATH, 'SplineSansMono-Regular.ttf')
+const textFontPath = join(FONTS_PATH, 'Quattrocento-Regular.ttf')
+const textEmphasisFontPath = join(FONTS_PATH, 'Quattrocento-Bold.ttf')
+const labelFontPath = join(FONTS_PATH, 'Dosis-Regular.ttf')
+const quantityFontPath = join(FONTS_PATH, 'SplineSansMono-Regular.ttf')
 
 export const CircularHoursIndicator = ({ hours } : { hours: number }) => {
     const degrees = (hours / 24) * 360
@@ -126,7 +128,6 @@ const generatePageWithBackground = (jsx: JSX.Element, backgroundImageBase64: str
           height: '100%',
           background: 'linear-gradient(150deg, rgba(252, 251, 244, 1), rgba(252, 251, 244,0.95) 49%, rgba(252, 251, 244,0.9) 59%, rgba(252, 251, 244,0.65) 77%, rgba(252, 251, 244,0))',
       }} />
-      
         {jsx}
   </div>
 }
@@ -137,30 +138,41 @@ export const generateTitlePage = (recipeData: RecipeData, scale: number, backgro
     const scaleString = scale > 1 ? `Scale: x${scale}` : '';
     const pageJsx = <>
     <div style={{
-          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
           width: '100%',
-          padding: '2vh 2vw'
+          padding: '0vh 2vw'
       }}>
-        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', fontFamily: 'small' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', width: "80%" }}>
-                <span style={{ fontFamily: 'heading', fontSize: '3.2em', lineHeight: '1' }}>{recipeData.title}</span>
-                <span style={{ fontFamily: 'regular', fontSize: '1.8em', lineHeight: '1.2' }}>{convertTime(recipeData.activeTimeMinutes)} active / {convertTime(recipeData.totalTimeMinutes)} total</span>
-                <span style={{ fontFamily: 'regular', fontSize: '1.6em', lineHeight: '1.2' }}>{yieldsParsed}</span>
-            </div>
-            <p>{scaleString}</p>
+        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center' }}>
+            <p style={{ fontFamily: 'heading', fontSize: '3.2em', width: "82%" }}>{recipeData.title}</p>
+            <p style={{ fontFamily: 'label', fontSize: '1.4em' }}>{scaleString}</p>
         </div>
-        <div style={{ display: 'flex', alignSelf: 'flex-end', flexDirection: 'row', width: "100%", height: "60%" }}>
-            <div style={{ display: 'flex', width: '60%' }}>
-                <p style={{ fontFamily: 'small', fontSize: '1em' }}>{descriptionParsed}</p>
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1, width: '68%' }}>
+          <p style={{ fontFamily: 'text', fontSize: '1.6em' }}>{descriptionParsed}</p>
+          <p style={{ fontFamily: 'label', fontSize: '1.6em' }}>
+            <span>{convertTime(recipeData.activeTimeMinutes)}</span> active / {convertTime(recipeData.totalTimeMinutes)} total</p>
+          <p style={{ fontFamily: 'label', fontSize: '1.6em' }}>{yieldsParsed}</p>
         </div>
       </div>
     </>
     return generatePageWithBackground(pageJsx, backgroundImageBase64);
 };
+
+const generateRecipePage = (jsx: JSX.Element | JSX.Element[], title: string, headerDetail: string, footerDetail: string) => {
+  return <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', padding: '2vh 4vw 0vh 4vw' }}>
+    <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center' }}>
+      <p style={{ fontFamily: 'heading', fontSize: '2.2em' }}>{title}</p>
+      <p style={{ fontFamily: 'label', fontSize: '1.4em' }}>{headerDetail}</p>
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1 }}>
+      {jsx}
+    </div>
+    <div style={{ display: 'flex', alignSelf: 'flex-start', fontFamily: 'label', fontSize: '1.4em' }}>
+      <p>{footerDetail}</p>
+    </div>
+  </div>
+}
 
 export const generateIngredientsPage = (recipeData: RecipeData, scale: number, page: number, backgroundImageBase64: string) => {
   const pages = getIngredientPages(recipeData);
@@ -174,36 +186,19 @@ export const generateIngredientsPage = (recipeData: RecipeData, scale: number, p
 
   const ingredients = selectedIngredientsPage.map((ingredient, index) => {
     const scaledIngredient = scaleIngredient(ingredient);
-    return (
-      <div key={index} style={{ display: 'flex', flexDirection: 'row', fontFamily: 'regular', fontSize: '1.6em', padding: '2.5vh 0vw' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', width: '38%', padding: '0vh 2vw' }}>
-          {scaledIngredient.quantity} {scaledIngredient.unit}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-start', width: '62%', padding: '0vh 2vw'}}>
-          {scaledIngredient.name}
-        </div>
+    return <div key={index} style={{ display: 'flex', flexDirection: 'row', fontSize: '1.6em', padding: '1.4vh 0vw' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', width: '38%', padding: '0vh 2vw' }}>
+        <span style={{ fontFamily: 'quantity', marginRight: '.25rem' }}>{scaledIngredient.quantity}</span><span style={{ fontFamily: 'label' }}>{scaledIngredient.unit}</span>
       </div>
-    );
+      <div style={{ display: 'flex', justifyContent: 'flex-start', width: '62%', padding: '0vh 2vw'}}>
+        {scaledIngredient.name}
+      </div>
+    </div>
   })
 
-  const pageString = totalPages > 1 ? `Page ${page} of ${totalPages}` : ''
+  const pageString = totalPages > 1 ? `Page ${page} / ${totalPages}` : ''
   const scaleString = scale > 1 ? `Scale: x${scale}` : ''
-
-  const pageJsx =
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', padding: '2vh 4vw' }}>
-      <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', fontFamily: 'small' }}>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: '1.6em' }}>{recipeData.title}</span><br/><span style={{ fontSize: '1.4em' }}>Ingredients</span>
-        </div>
-        <p>{scaleString}</p>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1 }}>
-        {ingredients}
-      </div>
-      <div style={{ display: 'flex', alignSelf: 'flex-start', fontFamily: 'small', fontSize: '1.4em' }}>
-        <p>{pageString}</p>
-      </div>
-    </div>;
+  const pageJsx = generateRecipePage(ingredients, recipeData.title, scaleString, pageString)
   return generatePageWithBackground(pageJsx, backgroundImageBase64)
 };
 
@@ -213,7 +208,7 @@ const parseIngredients = (text: string, ingredients: IngredientData[], scale: nu
     var remainder = text
 
     const pushParsedWord = (word: string) => {
-      parsed.push(<span style={{ fontSize: '1.8em', marginRight: '0.25rem' }} key={`step-element-${parsed.length}`}>{word}</span>)
+      parsed.push(<span style={{ fontFamily: 'text', fontSize: '1.4em', marginRight: '0.25rem' }} key={`step-element-${parsed.length}`}>{word}</span>)
     }
 
     const splitAndPushParsedWords = (span: string) => {
@@ -222,10 +217,32 @@ const parseIngredients = (text: string, ingredients: IngredientData[], scale: nu
 
     const pushIngredient = (ingredient: IngredientData) => {
       const scaledQuantity = ingredient.quantity * scale;
-      parsed.push(<div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignContent: 'center', margin: '0.2em' }} key={`step-element-${parsed.length}`}>
-        <span style={{ alignSelf: 'center', fontSize: '1.8em' }}>{ingredient.name}</span>
-        <span style={{ alignSelf: 'center', fontFamily: 'small', fontSize: '1em' }}>{scaledQuantity}{ingredient.unit}</span>
-      </div>)
+      parsed.push(
+        <div 
+          style={{
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'flex-start', 
+            position: 'relative'
+          }} 
+          key={`step-element-${parsed.length}`}
+        >
+          <span style={{ fontFamily: 'text-emphasis', alignSelf: 'flex-start', fontSize: '1.4em' }}>
+            {ingredient.name}
+          </span>
+          <span 
+            style={{
+              alignSelf: 'center', 
+              fontSize: '1em', 
+              position: 'absolute',
+              top: '50%'
+            }}
+          >
+            <span style={{ fontFamily: 'quantity', marginRight: '0.25rem' }}>{scaledQuantity}</span>
+            <span style={{ fontFamily: 'label' }}>{ingredient.unit}</span>
+          </span>
+        </div>
+      );
     }
 
     while (remainder.length > 0) {
@@ -257,32 +274,26 @@ export const generateStepPage = (recipeData: RecipeData, scale: number, step: nu
     const selectedStepUnparsed = recipeData.steps[step - 1];
     const parsedStep = parseIngredients(selectedStepUnparsed, recipeData.ingredients, scale);
     const scaleString = scale > 1 ? `Scale: x${scale}` : '';
+    const stepString = `Step ${step} of ${recipeData.steps.length}`
 
-    const pageJsx = <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', padding: '2vh 4vw' }}>
-      <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', fontFamily: 'small', fontSize: '1.4em' }}>
-        <p>Step {step} of {recipeData.steps.length}</p>
-        <p>{scaleString}</p>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', flexGrow: '1', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          {parsedStep}
-        </div>
-      </div>
-      <div style={{ display: 'flex', alignSelf: 'flex-start', fontFamily: 'small', fontSize: '1.4em' }}>
-        <p>{recipeData.title}</p>
-      </div>
-    </div>
+    const pageJsx = generateRecipePage(
+      <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', lineHeight: '2.6em' }}>
+        {parsedStep}
+      </div>,
+      recipeData.title,
+      scaleString,
+      stepString)
     return generatePageWithBackground(pageJsx, backgroundImageBase64)
 }
 
 export const generateCompletedPage = (backgroundImageBase64: string): JSX.Element => {
     const pageJsx = <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '4vh 2vw' }}>
-      <h1 style={{ fontFamily: 'heading', fontSize: '2.4em', textAlign: 'center' }}>Thank You for Using Breadcast!</h1>
-      <p style={{ fontFamily: 'regular', fontSize: '1.6em', textAlign: 'center', margin: '2vh 0' }}>
-          We hope you enjoyed creating with us.
+      <h1 style={{ fontFamily: 'heading', fontSize: '2.4em', textAlign: 'center' }}>Thank You for Using Breadcast</h1>
+      <p style={{ fontFamily: 'text', fontSize: '1.6em', textAlign: 'center', margin: '2vh 0' }}>
+          Feedback & suggestions greatly appeciated.
       </p>
-      <p style={{ fontFamily: 'regular', fontSize: '1.4em', textAlign: 'center' }}>
-          Your feedback and creations make Breadcast better for everyone. Please share your comments and photos of your culinary masterpieces in responses to this post.
+      <p style={{ fontFamily: 'label', fontSize: '1.4em', textAlign: 'center' }}>
+          &lt;3   @jla
       </p>
     </div>
     return generatePageWithBackground(pageJsx, backgroundImageBase64)
@@ -291,10 +302,10 @@ export const generateCompletedPage = (backgroundImageBase64: string): JSX.Elemen
 export const generateErrorPage = (): JSX.Element => {
   return (
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '4vh 2vw' }}>
-          <p style={{ fontFamily: 'regular', fontSize: '1.6em', textAlign: 'center', margin: '2vh 0' }}>
+          <p style={{ fontFamily: 'heading', fontSize: '1.6em', textAlign: 'center', margin: '2vh 0' }}>
               For some reason we cannot display the requested content.
           </p>
-          <p style={{ fontFamily: 'regular', fontSize: '1.4em', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'text', fontSize: '1.4em', textAlign: 'center' }}>
               Please leave feedback and/or try again later.
           </p>
       </div>
@@ -310,21 +321,33 @@ export const renderJSXToPngBuffer = async (jsx: JSX.Element): Promise<Buffer> =>
       {
         name: 'heading',
         data: readFileSync(headingFontPath),
-        weight: 200,
+        weight: 400,
         style: 'normal',
       },
       {
-        name: 'regular',
-        data: readFileSync(regularFontPath),
-        weight: 200,
-        style: 'normal',
+        name: 'label',
+        data: readFileSync(labelFontPath),
+        weight: 400,
+        style: 'normal'
       },
       {
-        name: 'small',
-        data: readFileSync(smallFontPath),
+        name: 'text',
+        data: readFileSync(textFontPath),
         weight: 200,
-        style: 'normal',
+        style: 'normal'
       },
+      {
+        name: 'text-emphasis',
+        data: readFileSync(textEmphasisFontPath),
+        weight: 400,
+        style: 'normal'
+      },
+      {
+        name: 'quantity',
+        data: readFileSync(quantityFontPath),
+        weight: 700,
+        style: 'normal'
+      }
     ],
   })
 

@@ -12,7 +12,7 @@ const createFrameButton = (buttonNumber: number, content: string, target: string
     }
     return button
 }
-  
+
 const handleTitleScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
@@ -35,20 +35,6 @@ const handleTitleScreen = async (frameImage: string, frameContext: BreadcastFram
         frameContext.args.recipeCid,
         frameContext.args.scale,
         1))
-  
-    if (frameContext.args.scale > MIN_SCALE) {
-        addButton("Scale -", getTitlePageUrl(
-          frameContext.url,
-          frameContext.args.recipeCid,
-          Math.min(MAX_SCALE, frameContext.args.scale - 1)))
-    }
-
-    if (frameContext.args.scale < MAX_SCALE) {
-        addButton("Scale +", getTitlePageUrl(
-          frameContext.url,
-          frameContext.args.recipeCid,
-          Math.max(MIN_SCALE, frameContext.args.scale + 1)))
-    }
   
     const frameHeadTemplate = html`
         <html lang="en">
