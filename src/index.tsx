@@ -31,7 +31,7 @@ const PrerenderedRecipeSupplier: BreadcastFrameSupplier = {
   }
 }
 
-const LiveRenderedRecipeSupplier: BreadcastFrameSupplier = {
+const LazyPinnedRecipeSupplier: BreadcastFrameSupplier = {
   getRecipeData: async (cid) => {
     const recipeSet = await getRecipeSet()
     const recipeCidSet = new Set(Object.values(recipeSet))
@@ -40,6 +40,21 @@ const LiveRenderedRecipeSupplier: BreadcastFrameSupplier = {
   },
   getFrameImage: async (frameContext: BreadcastFrameContext): Promise<string> => {
     return getPinnedFrameImage(frameContext)
+  },
+  getFrameResponse: async (frameImage: string, frameContext: BreadcastFrameContext) => {
+    return getFrameResponse(frameImage, frameContext)
+  }
+}
+
+const LiveRenderedRecipeSupplier: BreadcastFrameSupplier = {
+  getRecipeData: async (cid) => {
+    const recipeSet = await getRecipeSet()
+    const recipeCidSet = new Set(Object.values(recipeSet))
+    if (!recipeCidSet.has(cid)) return undefined
+    return downloadIPFSJson(cid)
+  },
+  getFrameImage: async (frameContext: BreadcastFrameContext): Promise<string> => {
+    return generateFrameImageDataUri(frameContext)
   },
   getFrameResponse: async (frameImage: string, frameContext: BreadcastFrameContext) => {
     return getFrameResponse(frameImage, frameContext)

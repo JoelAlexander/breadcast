@@ -104,7 +104,63 @@ const parseRecipeScale = (text: string, scale: number) => {
     });
 }
 
-const generatePageWithBackground = (jsx: JSX.Element, backgroundImageBase64: string) => {
+const PageIndicator = ({ currentPage, totalPages }: { currentPage: number, totalPages: number }) => {
+  return (
+      <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          marginBottom: '4vh',
+          width: '100%'
+      }}>
+          {Array.from({ length: totalPages }, (_, i) => (
+              <div
+                  key={i}
+                  style={{
+                      height: '10px',
+                      width: '10px',
+                      backgroundColor: i === currentPage - 1 ? '#7851A9' : 'grey',
+                      borderRadius: '50%',
+                      margin: '0 5px',
+                  }}
+              />
+          ))}
+      </div>
+  );
+};
+
+const generatePageWithBackground = (body: JSX.Element | JSX.Element[], subtitle: JSX.Element | null, yieldElement: JSX.Element | null, backgroundImageBase64: string, title: string, scale: number, currentPage: number, totalPages: number) => {
+  const getScaleText = (s: number) => {
+    switch (s) {
+      case 1: return "Single recipe";
+      case 2: return "Double recipe";
+      case 3: return "Triple recipe";
+      case 4: return "Quadruple recipe";
+      case 5: return "Quintuple recipe";
+      case 6: return "Sextuple recipe";
+      case 7: return "Septuple recipe";
+      case 8: return "Octuple recipe";
+      default: return "";
+    }
+  };
+
+  const scaleIndicator = scale > 0 ? (
+    <div style={{
+      backgroundColor: '#7851A9',
+      border: '2px solid #7851A9',
+      borderRadius: '20px',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      fontSize: '1.4em',
+      padding: '5px 10px',
+      fontFamily: 'label',
+      color: 'white'
+    }}>
+      {getScaleText(scale)}
+    </div>
+  ) : null;  
+  
   return <div style={{
       position: 'relative',
       display: 'flex',
@@ -128,51 +184,55 @@ const generatePageWithBackground = (jsx: JSX.Element, backgroundImageBase64: str
           height: '100%',
           background: 'linear-gradient(150deg, rgba(252, 251, 244, 1), rgba(252, 251, 244,0.95) 49%, rgba(252, 251, 244,0.9) 59%, rgba(252, 251, 244,0.65) 77%, rgba(252, 251, 244,0))',
       }} />
-        {jsx}
+      <div style={{ padding: '0vh 2vw', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center', alignItems: 'center' }}>
+        <span style={{ margin: '0', padding: '0', fontFamily: 'heading', fontSize: '3.2em', width: "68%" }}>{title}</span>
+        {scaleIndicator}
+      </div>
+      <div style={{ padding: '0vh 2vw', display: 'flex', flexDirection: 'column'}}>
+        {subtitle}
+        {yieldElement}
+      </div>
+      <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '0vh 2vw',
+          justifyContent: 'center',
+          flexGrow: 1
+      }}>
+        {body}
+      </div>
+      {totalPages > 1 && <PageIndicator currentPage={currentPage} totalPages={totalPages} />}
   </div>
 }
 
 export const generateTitlePage = (recipeData: RecipeData, scale: number, backgroundImageBase64: string) => {
     const yieldsParsed = parseRecipeScale(recipeData.yields, scale);
     const descriptionParsed = parseRecipeScale(recipeData.description, scale);
-    const scaleString = scale > 1 ? `Scale: x${scale}` : '';
-    const pageJsx = <>
-    <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          width: '100%',
-          padding: '0vh 2vw'
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center' }}>
-            <p style={{ fontFamily: 'heading', fontSize: '3.2em', width: "82%" }}>{recipeData.title}</p>
-            <p style={{ fontFamily: 'label', fontSize: '1.4em' }}>{scaleString}</p>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1, width: '68%' }}>
-          <p style={{ fontFamily: 'text', fontSize: '1.6em' }}>{descriptionParsed}</p>
-          <p style={{ fontFamily: 'label', fontSize: '1.6em' }}>
-            <span style={{ marginRight: '0.25rem' }}>{convertTime(recipeData.activeTimeMinutes)}</span>active / {convertTime(recipeData.totalTimeMinutes)} total</p>
-          <p style={{ fontFamily: 'label', fontSize: '1.6em' }}>{yieldsParsed}</p>
-        </div>
+    const totalTimeString = convertTime(recipeData.totalTimeMinutes)
+    const justTotalTimeJsx = <span style={{ marginRight: '0.25rem' }}>
+      {totalTimeString}
+    </span>
+    const activeTimeJsx = recipeData.activeTimeMinutes !== recipeData.totalTimeMinutes ?
+      <span style={{ marginRight: '1rem' }}>
+        <span style={{ marginRight: '0.25rem' }}>
+          {convertTime(recipeData.activeTimeMinutes)}
+        </span>
+      <span>active</span>
+    </span> : null;
+
+    const totalTimeJsx = recipeData.activeTimeMinutes !== recipeData.totalTimeMinutes ?
+      <span>{justTotalTimeJsx}<span>total</span></span> : justTotalTimeJsx;
+
+    const timeElement = <p style={{ margin: '0', fontFamily: 'label', fontSize: '2.2em' }}>{activeTimeJsx}{totalTimeJsx}</p>
+    const yieldElement = <p style={{ margin: '0', fontFamily: 'label', fontSize: '2.2em' }}>{yieldsParsed}</p>
+
+    const body = <>
+      <div style={{ display: 'flex', flexDirection: 'column', width: '68%' }}>
+        <p style={{ margin: '0', fontFamily: 'text', fontSize: '2em' }}>{descriptionParsed}</p>
       </div>
     </>
-    return generatePageWithBackground(pageJsx, backgroundImageBase64);
+    return generatePageWithBackground(body, timeElement, yieldElement, backgroundImageBase64, recipeData.title, scale, 0, 0);
 };
-
-const generateRecipePage = (jsx: JSX.Element | JSX.Element[], title: string, headerDetail: string, footerDetail: string) => {
-  return <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', padding: '2vh 4vw 0vh 4vw' }}>
-    <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center' }}>
-      <p style={{ fontFamily: 'heading', fontSize: '2.2em' }}>{title}</p>
-      <p style={{ fontFamily: 'label', fontSize: '1.4em' }}>{headerDetail}</p>
-    </div>
-    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', flexGrow: 1 }}>
-      {jsx}
-    </div>
-    <div style={{ display: 'flex', alignSelf: 'flex-start', fontFamily: 'label', fontSize: '1.4em' }}>
-      <p>{footerDetail}</p>
-    </div>
-  </div>
-}
 
 export const generateIngredientsPage = (recipeData: RecipeData, scale: number, page: number, backgroundImageBase64: string) => {
   const pages = getIngredientPages(recipeData);
@@ -186,7 +246,7 @@ export const generateIngredientsPage = (recipeData: RecipeData, scale: number, p
 
   const ingredients = selectedIngredientsPage.map((ingredient, index) => {
     const scaledIngredient = scaleIngredient(ingredient);
-    return <div key={index} style={{ display: 'flex', flexDirection: 'row', fontSize: '1.6em', padding: '1.4vh 0vw' }}>
+    return <div key={index} style={{ display: 'flex', flexDirection: 'row', fontSize: '1.6em' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', width: '38%', padding: '0vh 2vw' }}>
         <span style={{ fontFamily: 'quantity', marginRight: '.25rem' }}>{scaledIngredient.quantity}</span><span style={{ fontFamily: 'label' }}>{scaledIngredient.unit}</span>
       </div>
@@ -196,10 +256,7 @@ export const generateIngredientsPage = (recipeData: RecipeData, scale: number, p
     </div>
   })
 
-  const pageString = totalPages > 1 ? `Page ${page} / ${totalPages}` : ''
-  const scaleString = scale > 1 ? `Scale: x${scale}` : ''
-  const pageJsx = generateRecipePage(ingredients, recipeData.title, scaleString, pageString)
-  return generatePageWithBackground(pageJsx, backgroundImageBase64)
+  return generatePageWithBackground(ingredients, null, null, backgroundImageBase64, recipeData.title, scale, page, totalPages)
 };
 
 const parseIngredients = (text: string, ingredients: IngredientData[], scale: number) => {
@@ -273,17 +330,10 @@ const parseIngredients = (text: string, ingredients: IngredientData[], scale: nu
 export const generateStepPage = (recipeData: RecipeData, scale: number, step: number, backgroundImageBase64: string): JSX.Element => {
     const selectedStepUnparsed = recipeData.steps[step - 1];
     const parsedStep = parseIngredients(selectedStepUnparsed, recipeData.ingredients, scale);
-    const scaleString = scale > 1 ? `Scale: x${scale}` : '';
-    const stepString = `Step ${step} of ${recipeData.steps.length}`
-
-    const pageJsx = generateRecipePage(
-      <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', lineHeight: '2.6em' }}>
-        {parsedStep}
-      </div>,
-      recipeData.title,
-      scaleString,
-      stepString)
-    return generatePageWithBackground(pageJsx, backgroundImageBase64)
+    const pageJsx = <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', lineHeight: '2.6em' }}>
+      {parsedStep}
+    </div>
+    return generatePageWithBackground(pageJsx, null, null, backgroundImageBase64, recipeData.title, scale, step, recipeData.steps.length)
 }
 
 export const generateCompletedPage = (backgroundImageBase64: string): JSX.Element => {
@@ -296,7 +346,7 @@ export const generateCompletedPage = (backgroundImageBase64: string): JSX.Elemen
           &lt;3   @jla
       </p>
     </div>
-    return generatePageWithBackground(pageJsx, backgroundImageBase64)
+    return generatePageWithBackground(pageJsx, null, null, backgroundImageBase64, '', 0, 0, 0)
 }
 
 export const generateErrorPage = (): JSX.Element => {
