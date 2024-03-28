@@ -1,6 +1,6 @@
 import React from 'react';
 import { IngredientData, RecipeData, getIngredientPages } from './model';
-import { getBase64PngImage, pngDataUri } from './fileHelpers';
+import { getCachedBase64PngImage, pngDataUri } from './fileHelpers';
 import { BreadcastFrameContext, FrameScreen } from './model';
 import satori from 'satori';
 import { join } from 'path';
@@ -409,7 +409,7 @@ export const renderJSXToPngDataUri = async (jsx: JSX.Element): Promise<string> =
 }
 
 export const generateFrameJsx = async (frameContext: BreadcastFrameContext): Promise<JSX.Element> => {
-  const backgroundImageBase64 = await getBase64PngImage(frameContext.recipeData.imageCid)
+  const backgroundImageBase64 = await getCachedBase64PngImage(frameContext.recipeData.imageCid)
   switch (frameContext.args.screen) {
     default:
     case FrameScreen.TITLE:
@@ -426,6 +426,27 @@ export const generateFrameJsx = async (frameContext: BreadcastFrameContext): Pro
 export const generateFrameImageDataUri = async (frameContext: BreadcastFrameContext): Promise<string> => {
   const jsx = await generateFrameJsx(frameContext)
   return renderJSXToPngDataUri(jsx)
+}
+
+const RERENDER_TIMEOUT_MILLIS = 60000
+
+interface CachedDataUri {
+  dataUri: string
+  timestamp: number
+}
+
+const cachedFrameImageDataUris: {[key: string]: CachedDataUri} = {}
+export const getCachedFrameImageDataUri = async (frameContext: BreadcastFrameContext): Promise<string> => {
+  const cacheKey = getRecipeAssetKey(frameContext)
+  const existingEntry = cachedFrameImageDataUris[cacheKey]
+  if (!existingEntry || (Date.now() > existingEntry.timestamp + RERENDER_TIMEOUT_MILLIS)) {
+    const dataUri = await generateFrameImageDataUri(frameContext)
+    cachedFrameImageDataUris[cacheKey] = {
+      dataUri: dataUri,
+      timestamp: Date.now()
+    }
+  }
+  return cachedFrameImageDataUris[cacheKey].dataUri
 }
 
 const pinnedImages: {[key: string]: string} = {}

@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { RecipeData } from './model';
 import { RenderedRecipeSet, RecipeSet } from './model';
-import { downloadIPFSBuffer, getIPFSUrl } from './ipfsHelpers';
+import { downloadIPFSBuffer, downloadIPFSJson, getIPFSUrl } from './ipfsHelpers';
 import { RENDERED_RECIPES_FILE, RECIPES_FILE } from './environment';
 import sharp from 'sharp';
 
@@ -87,9 +87,17 @@ export const downloadBase64PngImage = async (cid: string): Promise<string> => {
 
 // Want to evict this sometime????  You like memory leaks????
 const cachedBase64Pngs: {[key: string]: string} = {}
-export const getBase64PngImage = async (cid: string): Promise<string> => {
+export const getCachedBase64PngImage = async (cid: string): Promise<string> => {
   if (!cachedBase64Pngs[cid]) {
     cachedBase64Pngs[cid] = await downloadBase64PngImage(cid)
   }
   return cachedBase64Pngs[cid]
+}
+
+const cachedRecipes: {[key: string]: RecipeData} = {}
+export const getCachedRecipeData = async (cid: string): Promise<RecipeData> => {
+  if (!cachedRecipes[cid]) {
+    cachedRecipes[cid] = await downloadIPFSJson(cid)
+  }
+  return cachedRecipes[cid]
 }

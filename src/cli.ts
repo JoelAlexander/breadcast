@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, lstatSync, readdirSync } from 'fs';
 import { MAX_SCALE, MIN_SCALE, RecipeData, getCompletedImageKey, getIngredientPages, getIngredientsImageKey, getStepImageKey, getTitleImageKey } from './model';
 import { cid } from 'is-ipfs';
 import { downloadIPFSJson, pinBufferToIPFS, pinListEntire, unpin } from './ipfsHelpers';
-import { getBase64PngImage, loadRenderedRecipeSetFromDisk } from './fileHelpers';
+import { getCachedBase64PngImage, loadRenderedRecipeSetFromDisk } from './fileHelpers';
 import { RenderedRecipe } from './model';
 import { generateCompletedPage, generateIngredientsPage, generateStepPage, generateTitlePage, getPinnedFrameImage, renderJSXToPngBuffer } from './recipeDisplay';
 import path from 'path';
@@ -275,7 +275,7 @@ const renderAndPinFrame = async (recipeDataCid: string): Promise<RenderedRecipe>
 
   const recipeData = await downloadIPFSJson(recipeDataCid) as RecipeData
   const ingredientPageCount = getIngredientPages(recipeData).length
-  const backgroundImageBase64 = await getBase64PngImage(recipeData.imageCid)
+  const backgroundImageBase64 = await getCachedBase64PngImage(recipeData.imageCid)
   const renderedRecipe: RenderedRecipe = { recipeData: recipeData, assetCids: {} }
 
   for (var scale = MIN_SCALE; scale <= MAX_SCALE; scale++) {
