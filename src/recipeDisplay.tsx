@@ -154,13 +154,21 @@ const generatePageWithBackground = (body: JSX.Element | JSX.Element[], subtitle:
       alignItems: 'center',
       fontSize: '1.4em',
       padding: '5px 10px',
+      margin: '0.5em 0',
       fontFamily: 'label',
+      alignSelf: 'flex-start',
       color: 'white'
     }}>
       {getScaleText(scale)}
     </div>
   ) : null;  
   
+  const subtitleSection = (subtitle || yieldElement) ? 
+    <div style={{ padding: '0vh 2vw', display: 'flex', flexDirection: 'column'}}>
+      {subtitle}
+      {yieldElement}
+    </div> : null
+
   return <div style={{
       position: 'relative',
       display: 'flex',
@@ -182,20 +190,17 @@ const generatePageWithBackground = (body: JSX.Element | JSX.Element[], subtitle:
           left: 0,
           width: '100%',
           height: '100%',
-          background: 'linear-gradient(150deg, rgba(252, 251, 244, 1), rgba(252, 251, 244,0.95) 49%, rgba(252, 251, 244,0.9) 59%, rgba(252, 251, 244,0.65) 77%, rgba(252, 251, 244,0))',
+          background: 'linear-gradient(150deg, rgba(252, 251, 244, 1), rgba(252, 251, 244,0.95) 45%, rgba(252, 251, 244,0.9) 55%, rgba(252, 251, 244,0.65) 73%, rgba(252, 251, 244,0))',
       }} />
-      <div style={{ padding: '0vh 2vw', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center', alignItems: 'center' }}>
-        <span style={{ margin: '0', padding: '0', fontFamily: 'heading', fontSize: '3.2em', width: "68%" }}>{title}</span>
+      <div style={{ padding: '0vh 2vw', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center' }}>
+        <span style={{ margin: '0', padding: '0', fontFamily: 'heading', fontSize: '3.2em', width: "72%" }}>{title}</span>
         {scaleIndicator}
       </div>
-      <div style={{ padding: '0vh 2vw', display: 'flex', flexDirection: 'column'}}>
-        {subtitle}
-        {yieldElement}
-      </div>
+      {subtitleSection}
       <div style={{
           display: 'flex',
           flexDirection: 'column',
-          padding: '0vh 2vw',
+          padding: '0vh 2vw 4vh',
           justifyContent: 'center',
           flexGrow: 1
       }}>
@@ -246,7 +251,7 @@ export const generateIngredientsPage = (recipeData: RecipeData, scale: number, p
 
   const ingredients = selectedIngredientsPage.map((ingredient, index) => {
     const scaledIngredient = scaleIngredient(ingredient);
-    return <div key={index} style={{ display: 'flex', flexDirection: 'row', fontSize: '1.6em' }}>
+    return <div key={index} style={{ display: 'flex', flexDirection: 'row', fontSize: '1.8em' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', width: '38%', padding: '0vh 2vw' }}>
         <span style={{ fontFamily: 'quantity', marginRight: '.25rem' }}>{scaledIngredient.quantity}</span><span style={{ fontFamily: 'label' }}>{scaledIngredient.unit}</span>
       </div>
@@ -259,13 +264,13 @@ export const generateIngredientsPage = (recipeData: RecipeData, scale: number, p
   return generatePageWithBackground(ingredients, null, null, backgroundImageBase64, recipeData.title, scale, page, totalPages)
 };
 
-const parseIngredients = (text: string, ingredients: IngredientData[], scale: number) => {
+const parseStepText = (text: string, ingredients: IngredientData[], scale: number): JSX.Element[] => {
 
     var parsed: JSX.Element[] = []
     var remainder = text
 
     const pushParsedWord = (word: string) => {
-      parsed.push(<span style={{ fontFamily: 'text', fontSize: '1.4em', marginRight: '0.25rem' }} key={`step-element-${parsed.length}`}>{word}</span>)
+      parsed.push(<span style={{ fontFamily: 'text', fontSize: '2.0em', marginRight: '0.25rem' }} key={`step-element-${parsed.length}`}>{word}</span>)
     }
 
     const splitAndPushParsedWords = (span: string) => {
@@ -279,18 +284,19 @@ const parseIngredients = (text: string, ingredients: IngredientData[], scale: nu
           style={{
             display: 'flex', 
             flexDirection: 'column', 
-            justifyContent: 'flex-start', 
-            position: 'relative'
+            justifyContent: 'center',
+            alignItems: 'center',
+            position: 'relative',
+            minWidth: '4em'
           }} 
           key={`step-element-${parsed.length}`}
         >
-          <span style={{ fontFamily: 'text-emphasis', alignSelf: 'flex-start', fontSize: '1.4em' }}>
+          <span style={{ fontFamily: 'text-emphasis', fontSize: '2em' }}>
             {ingredient.name}
           </span>
           <span 
             style={{
-              alignSelf: 'center', 
-              fontSize: '1em', 
+              fontSize: '1.4em', 
               position: 'absolute',
               top: '50%'
             }}
@@ -329,8 +335,8 @@ const parseIngredients = (text: string, ingredients: IngredientData[], scale: nu
 
 export const generateStepPage = (recipeData: RecipeData, scale: number, step: number, backgroundImageBase64: string): JSX.Element => {
     const selectedStepUnparsed = recipeData.steps[step - 1];
-    const parsedStep = parseIngredients(selectedStepUnparsed, recipeData.ingredients, scale);
-    const pageJsx = <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', lineHeight: '2.6em' }}>
+    const parsedStep = parseStepText(selectedStepUnparsed, recipeData.ingredients, scale);
+    const pageJsx = <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', lineHeight: '2.5em' }}>
       {parsedStep}
     </div>
     return generatePageWithBackground(pageJsx, null, null, backgroundImageBase64, recipeData.title, scale, step, recipeData.steps.length)
