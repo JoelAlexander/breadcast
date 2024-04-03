@@ -1,8 +1,6 @@
-import { BreadcastFrameContext, MAX_SCALE, MIN_SCALE, RecipeData, getCompletedImageKey, getCompletedPageUrl, getIngredientPages, getIngredientsImageKey, getIngredientsPageUrl, getStepImageKey, getStepsPageUrl, getTitleImageKey, getTitlePageUrl } from "./model"
+import { RecipeFrameContext, MAX_SCALE, MIN_SCALE, getCompletedImageKey, getCompletedPageUrl, getIngredientPages, getIngredientsImageKey, getIngredientsPageUrl, getStepImageKey, getStepsPageUrl, getTitleImageKey, getTitlePageUrl } from "../model"
 import { html, raw } from 'hono/html'
-import { FrameScreen } from './model';
-import { getRecipeAssetCid, getRecipeAssetUrl } from "./fileHelpers";
-import { generateErrorPage, generateErrorImage } from "./recipeDisplay";
+import { RecipeScreen } from '../model';
 
 const createFrameButton = (buttonNumber: number, content: string, target: string = '') => {
     var button = `<meta property="fc:frame:button:${buttonNumber}" content="${content}" />`
@@ -13,7 +11,7 @@ const createFrameButton = (buttonNumber: number, content: string, target: string
     return button
 }
 
-const handleTitleScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
+const handleTitleScreen = async (frameImage: string, frameContext: RecipeFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
   
@@ -65,7 +63,7 @@ const handleTitleScreen = async (frameImage: string, frameContext: BreadcastFram
     return frameHeadTemplate
 }
   
-const handleIngredientsScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
+const handleIngredientsScreen = async (frameImage: string, frameContext: RecipeFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
   
@@ -134,7 +132,7 @@ const handleIngredientsScreen = async (frameImage: string, frameContext: Breadca
     return frameHeadTemplate
 }
   
-const handleStepScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
+const handleStepScreen = async (frameImage: string, frameContext: RecipeFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
   
@@ -202,7 +200,7 @@ const handleStepScreen = async (frameImage: string, frameContext: BreadcastFrame
     return frameHeadTemplate
 }
   
-const handleCompletedScreen = async (frameImage: string, frameContext: BreadcastFrameContext) => {
+const handleCompletedScreen = async (frameImage: string, frameContext: RecipeFrameContext) => {
     var buttonsCount = 0
     var buttons = ''
   
@@ -243,30 +241,30 @@ export const handleErrorScreen = async (frameImage: string) => {
   return frameHeadTemplate
 }
 
-export const getRecipeAssetKey = (frameContext: BreadcastFrameContext) => {
+export const getRecipeAssetKey = (frameContext: RecipeFrameContext) => {
   switch (frameContext.args.screen) {
       default:
-      case FrameScreen.TITLE:
+      case RecipeScreen.TITLE:
           return getTitleImageKey(frameContext.args.recipeCid, frameContext.args.scale)
-      case FrameScreen.INGREDIENTS:
+      case RecipeScreen.INGREDIENTS:
           return getIngredientsImageKey(frameContext.args.recipeCid, frameContext.args.scale, frameContext.args.page)
-      case FrameScreen.STEPS:
+      case RecipeScreen.STEPS:
           return getStepImageKey(frameContext.args.recipeCid, frameContext.args.scale, frameContext.args.page)
-      case FrameScreen.COMPLETED:
+      case RecipeScreen.COMPLETED:
           return getCompletedImageKey(frameContext.args.recipeCid)
   }
 }
 
-export const getFrameResponse = (frameImage: string, frameContext: BreadcastFrameContext) => {
+export const getRecipeFrameResponse = (frameImage: string, frameContext: RecipeFrameContext) => {
   switch (frameContext.args.screen) {
       default:
-      case FrameScreen.TITLE:
+      case RecipeScreen.TITLE:
           return handleTitleScreen(frameImage, frameContext)
-      case FrameScreen.INGREDIENTS:
+      case RecipeScreen.INGREDIENTS:
           return handleIngredientsScreen(frameImage, frameContext)
-      case FrameScreen.STEPS:
+      case RecipeScreen.STEPS:
           return handleStepScreen(frameImage, frameContext)
-      case FrameScreen.COMPLETED:
+      case RecipeScreen.COMPLETED:
           return handleCompletedScreen(frameImage, frameContext)
   }
 }

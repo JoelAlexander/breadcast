@@ -1,82 +1,9 @@
 import React from 'react';
-import { IngredientData, RecipeData, getIngredientPages } from './model';
-import { getCachedBase64PngImage, pngDataUri } from './fileHelpers';
-import { BreadcastFrameContext, FrameScreen } from './model';
-import satori from 'satori';
-import { join } from 'path';
-import { readFileSync } from 'fs';
-import sharp from 'sharp';
-import { getIPFSUrl, pinBufferToIPFS } from './ipfsHelpers';
-import { getRecipeAssetKey } from './handlers';
-
-const BASE_DIR = process.cwd()
-const FONTS_PATH = join(BASE_DIR, 'fonts')
-const headingFontPath = join(FONTS_PATH, 'DMSerifDisplay-Regular.ttf')
-const textFontPath = join(FONTS_PATH, 'Quattrocento-Regular.ttf')
-const textEmphasisFontPath = join(FONTS_PATH, 'Quattrocento-Bold.ttf')
-const labelFontPath = join(FONTS_PATH, 'Dosis-Regular.ttf')
-const quantityFontPath = join(FONTS_PATH, 'SplineSansMono-Regular.ttf')
-
-export const CircularHoursIndicator = ({ hours } : { hours: number }) => {
-    const degrees = (hours / 24) * 360
-    const sizePixels = 100;
-
-    const blueArc = (start: number, duration: number) => {
-        const radius = sizePixels / 2;
-        const startDx = Math.sin(start) * radius
-        const startDy = Math.cos(start) * radius
-        const end = start - duration;
-        const endDx = Math.sin(end) * radius
-        const endDy = Math.cos(end) * radius
-        return (
-        <div style={{
-            display: 'flex',
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            clipPath: `path("M ${radius} ${radius} L ${radius + startDx} ${radius - startDy} A ${radius} ${radius} 0 0 0 ${radius + endDx} ${radius - endDy} L ${radius} ${radius} z")`,
-            overflow: 'hidden'
-        }}>
-            <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: 'blue' }} />
-        </div>
-        )
-    }
-
-    return (
-        <div style={{
-        display: 'flex',
-        width: `${sizePixels}px`,
-        height: `${sizePixels}px`,
-        overflow: 'hidden'
-        }}>
-        <div style={{
-            display: 'flex',
-            position: 'absolute',
-            width: '100%',
-            height: '100%',
-            clipPath: 'circle(50%)',
-            overflow: 'hidden'
-        }}>
-            <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: 'white' }} />
-        </div>
-        {blueArc(Math.PI/2 + 1, Math.PI / 2)}
-        {blueArc(Math.PI/2 + 3, Math.PI / 5)}
-        {blueArc(Math.PI/2 + 5, Math.PI / 4)}
-        <div style={{
-            display: 'flex',
-            position: 'absolute',
-            top: '10%',
-            left: '10%',
-            width: '80%',
-            height: '80%',
-            clipPath: 'circle(50%)',
-            overflow: 'hidden'
-        }}>
-            <div style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: 'white' }} />
-        </div>
-        </div>
-    )
-}
+import { IngredientData, RecipeData, getIngredientPages } from '../model';
+import { getCachedBase64PngImage } from '../fileHelpers';
+import { RecipeFrameContext, RecipeScreen } from '../model';
+import { getRecipeAssetKey } from '../response/recipe';
+import { generatePageWithBackground, getCachedDataUri, getPinnedCid, renderJSXToPngBuffer, renderJSXToPngDataUri } from './common';
 
 const convertTime = (minutes: number): string => {
     const hours = Math.floor(minutes / 60);
@@ -127,88 +54,6 @@ const PageIndicator = ({ currentPage, totalPages }: { currentPage: number, total
       </div>
   );
 };
-
-const generatePageWithBackground = (body: JSX.Element | JSX.Element[], subtitle: JSX.Element | null, yieldElement: JSX.Element | null, backgroundImageBase64: string, title: string, scale: number, currentPage: number, totalPages: number) => {
-  const getScaleText = (s: number) => {
-    switch (s) {
-      case 1: return "Single recipe";
-      case 2: return "Double recipe";
-      case 3: return "Triple recipe";
-      case 4: return "Quadruple recipe";
-      case 5: return "Quintuple recipe";
-      case 6: return "Sextuple recipe";
-      case 7: return "Septuple recipe";
-      case 8: return "Octuple recipe";
-      default: return "";
-    }
-  };
-
-  const scaleIndicator = scale > 0 ? (
-    <div style={{
-      backgroundColor: '#7851A9',
-      border: '2px solid #7851A9',
-      borderRadius: '20px',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      fontSize: '1.4em',
-      padding: '5px 10px',
-      margin: '0.5em 0',
-      fontFamily: 'label',
-      alignSelf: 'flex-start',
-      color: 'white'
-    }}>
-      {getScaleText(scale)}
-    </div>
-  ) : null;  
-  
-  const subtitleSection = (subtitle || yieldElement) ? 
-    <div style={{ padding: '0vh 2vw', display: 'flex', flexDirection: 'column'}}>
-      {subtitle}
-      {yieldElement}
-    </div> : null
-
-  return <div style={{
-      position: 'relative',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      width: '100vw',
-  }}>
-      <img src={backgroundImageBase64} style={{
-          position: 'absolute',
-          bottom: 0,
-          right: 0,
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover'
-      }} />
-      <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          background: 'linear-gradient(150deg, rgba(252, 251, 244, 1), rgba(252, 251, 244,0.95) 45%, rgba(252, 251, 244,0.9) 55%, rgba(252, 251, 244,0.65) 73%, rgba(252, 251, 244,0))',
-      }} />
-      <div style={{ padding: '0vh 2vw', display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignContent: 'center' }}>
-        <span style={{ margin: '0', padding: '0', fontFamily: 'heading', fontSize: '3.2em', width: "72%" }}>{title}</span>
-        {scaleIndicator}
-      </div>
-      {subtitleSection}
-      <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '0vh 2vw 4vh',
-          justifyContent: 'center',
-          flexGrow: 1
-      }}>
-        {body}
-      </div>
-      {totalPages > 1 && <PageIndicator currentPage={currentPage} totalPages={totalPages} />}
-  </div>
-}
 
 export const generateTitlePage = (recipeData: RecipeData, scale: number, backgroundImageBase64: string) => {
     const yieldsParsed = parseRecipeScale(recipeData.yields, scale);
@@ -368,105 +213,36 @@ export const generateErrorPage = (): JSX.Element => {
   );
 };
 
-export const renderJSXToPngBuffer = async (jsx: JSX.Element): Promise<Buffer> => {
-
-  const svg = await satori(jsx, {
-    width: 764,
-    height: 400,
-    fonts: [
-      {
-        name: 'heading',
-        data: readFileSync(headingFontPath),
-        weight: 400,
-        style: 'normal',
-      },
-      {
-        name: 'label',
-        data: readFileSync(labelFontPath),
-        weight: 400,
-        style: 'normal'
-      },
-      {
-        name: 'text',
-        data: readFileSync(textFontPath),
-        weight: 200,
-        style: 'normal'
-      },
-      {
-        name: 'text-emphasis',
-        data: readFileSync(textEmphasisFontPath),
-        weight: 400,
-        style: 'normal'
-      },
-      {
-        name: 'quantity',
-        data: readFileSync(quantityFontPath),
-        weight: 700,
-        style: 'normal'
-      }
-    ],
-  })
-
-  return await sharp(Buffer.from(svg)).resize(764, 400).png({ quality: 100, compressionLevel: 6 }).toBuffer()
-}
-
-export const renderJSXToPngDataUri = async (jsx: JSX.Element): Promise<string> => {
-  return pngDataUri(await renderJSXToPngBuffer(jsx))
-}
-
-export const generateFrameJsx = async (frameContext: BreadcastFrameContext): Promise<JSX.Element> => {
+export const generateRecipeFrameJsx = async (frameContext: RecipeFrameContext): Promise<JSX.Element> => {
   const backgroundImageBase64 = await getCachedBase64PngImage(frameContext.recipeData.imageCid)
   switch (frameContext.args.screen) {
     default:
-    case FrameScreen.TITLE:
+    case RecipeScreen.TITLE:
       return generateTitlePage(frameContext.recipeData, frameContext.args.scale, backgroundImageBase64)
-    case FrameScreen.INGREDIENTS:
+    case RecipeScreen.INGREDIENTS:
       return generateIngredientsPage(frameContext.recipeData, frameContext.args.scale, frameContext.args.page, backgroundImageBase64)
-    case FrameScreen.STEPS:
+    case RecipeScreen.STEPS:
       return generateStepPage(frameContext.recipeData, frameContext.args.scale, frameContext.args.page, backgroundImageBase64)
-    case FrameScreen.COMPLETED:
+    case RecipeScreen.COMPLETED:
       return generateCompletedPage(backgroundImageBase64)
   }
 }
 
-export const generateFrameImageDataUri = async (frameContext: BreadcastFrameContext): Promise<string> => {
-  const jsx = await generateFrameJsx(frameContext)
-  return renderJSXToPngDataUri(jsx)
+export const generateRecipeFrameImageDataUri = async (frameContext: RecipeFrameContext): Promise<string> => {
+  return renderJSXToPngDataUri(await generateRecipeFrameJsx(frameContext))
 }
 
-const RERENDER_TIMEOUT_MILLIS = 60000
-
-interface CachedDataUri {
-  dataUri: string
-  timestamp: number
+export const getCachedRecipeFrameImage = async (frameContext: RecipeFrameContext): Promise<string> => {
+  return getCachedDataUri(
+    getRecipeAssetKey(frameContext),
+    () => { return generateRecipeFrameImageDataUri(frameContext) })
 }
 
-const cachedFrameImageDataUris: {[key: string]: CachedDataUri} = {}
-export const getCachedFrameImageDataUri = async (frameContext: BreadcastFrameContext): Promise<string> => {
-  const cacheKey = getRecipeAssetKey(frameContext)
-  const existingEntry = cachedFrameImageDataUris[cacheKey]
-  if (!existingEntry || (Date.now() > existingEntry.timestamp + RERENDER_TIMEOUT_MILLIS)) {
-    const dataUri = await generateFrameImageDataUri(frameContext)
-    cachedFrameImageDataUris[cacheKey] = {
-      dataUri: dataUri,
-      timestamp: Date.now()
-    }
-  }
-  return cachedFrameImageDataUris[cacheKey].dataUri
-}
-
-const pinnedImages: {[key: string]: string} = {}
-export const getPinnedFrameImage = async (frameContext: BreadcastFrameContext): Promise<string> => {
-  const key = getRecipeAssetKey(frameContext)
-  if (!pinnedImages[key]) {
-    const jsx = await generateFrameJsx(frameContext)
-    const pngBuffer = await renderJSXToPngBuffer(jsx)
-    pinnedImages[key] = await pinBufferToIPFS(pngBuffer, `${key}.png`)
-  }
-
-  return getIPFSUrl(pinnedImages[key])
-}
-
-export const generateErrorImage = async (): Promise<string> => {
-  return renderJSXToPngDataUri(generateErrorPage())
+export const getPinnedRecipeFrameImage = async (frameContext: RecipeFrameContext): Promise<string> => {
+  return getPinnedCid(
+    getRecipeAssetKey(frameContext),
+    async () => {
+      const jsx = await generateRecipeFrameJsx(frameContext)
+      return renderJSXToPngBuffer(jsx)
+    })
 }

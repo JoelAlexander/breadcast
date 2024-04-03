@@ -1,23 +1,23 @@
 export const MAX_SCALE = 4
 export const MIN_SCALE = 1
 
-export enum FrameScreen {
+export enum RecipeScreen {
   TITLE = 'title',
   INGREDIENTS = 'ingredients',
   STEPS = 'steps',
   COMPLETED = 'complete'
 }
 
-export interface BreadcastFrameArguments {
+export interface RecipeFrameArguments {
   recipeCid: string
-  screen: FrameScreen
+  screen: RecipeScreen
   scale: number
   page: number
 }
 
-export interface BreadcastFrameContext {
+export interface RecipeFrameContext {
   url: URL
-  args: BreadcastFrameArguments
+  args: RecipeFrameArguments
   recipeData: RecipeData
 }
 
@@ -31,23 +31,12 @@ export interface IngredientData {
   unit: string
 }
 
-export interface EquipmentData {
-  name: string
-  count: number
-  scalesWithRecipe: boolean
-}
-
-export interface StepData {
-  text: string
-}
-
 export interface RecipeData {
   title: string
   description: string
   totalTimeMinutes: number
   activeTimeMinutes: number
   yields: string
-  equipment: EquipmentData[]
   ingredients: IngredientData[]
   steps: string[]
   imageCid: string
@@ -74,19 +63,19 @@ export const getIngredientPages = (recipeData: RecipeData) => {
 }
 
 export const getTitlePageUrl = (originUrl: URL, recipeCid: string, scale: number) => {
-  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${FrameScreen.TITLE}`
+  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${RecipeScreen.TITLE}`
 }
 
 export const getIngredientsPageUrl = (originUrl: URL, recipeCid: string, scale: number, page: number) => {
-  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${FrameScreen.INGREDIENTS}&page=${page}`
+  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${RecipeScreen.INGREDIENTS}&page=${page}`
 }
 
 export const getStepsPageUrl = (originUrl: URL, recipeCid: string, scale: number, page: number) => {
-  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${FrameScreen.STEPS}&page=${page}`
+  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${RecipeScreen.STEPS}&page=${page}`
 }
 
 export const getCompletedPageUrl = (originUrl: URL, recipeCid: string, scale: number) => {
-  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${FrameScreen.COMPLETED}`
+  return `https://${originUrl.hostname}/${recipeCid}?scale=${scale}&screen=${RecipeScreen.COMPLETED}`
 }
 
 export const getTitleImageKey = (recipeCid: string, scale: number) => {
