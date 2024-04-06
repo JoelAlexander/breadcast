@@ -1,7 +1,6 @@
 import { default as dotenv } from 'dotenv'
 dotenv.config()
 import axios from 'axios'
-import { default as FormData } from 'form-data' 
 
 const PINATA_JWT = process.env.PINATA_JWT
 const IPFS_GATEWAY = process.env.IPFS_GATEWAY
@@ -20,10 +19,13 @@ export const getIPFSUrl = (cid: string) => {
   return `http://${IPFS_GATEWAY}/ipfs/${cid}`
 }
 
-export const pinBufferToIPFS = async (buffer: Buffer, fileName: string): Promise<string> => {
+type JSONOrPNGMimeType = 'application/json' | 'image/png';
+
+export const pinBufferToIPFS = async (buffer: Buffer, fileName: string, contentType: JSONOrPNGMimeType): Promise<string> => {
   const formData = new FormData();
-  
-  formData.append('file', buffer, fileName)
+
+  const blob = new Blob([buffer])
+  formData.append('file', blob)
 
   const pinataMetadata = fileName ? { name: fileName } : {}
   formData.append('pinataMetadata',  JSON.stringify(pinataMetadata));
@@ -31,13 +33,18 @@ export const pinBufferToIPFS = async (buffer: Buffer, fileName: string): Promise
   const pinataOptions = JSON.stringify({ cidVersion: 0 })
   formData.append('pinataOptions', pinataOptions);
 
-  const res = await axios.post("https://api.pinata.cloud/pinning/pinFileToIPFS", formData, {
-    headers: {
-      'Content-Type': `multipart/form-data; boundary=${formData.getBoundary()}`,
-      'Authorization': `Bearer ${PINATA_JWT}`
+  const upload = await fetch(
+    "https://api.pinata.cloud/pinning/pinFileToIPFS",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PINATA_JWT}`,
+      },
+      body: formData,
     }
-  })
-  return res.data.IpfsHash
+  );
+  const uploadRes = await upload.json()
+  return uploadRes.IpfsHash
 }
 
 const PinListPageSize = 500

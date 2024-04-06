@@ -62,19 +62,22 @@ export const generateTitlePage = (recipeData: RecipeData, scale: number, backgro
     const justTotalTimeJsx = <span style={{ marginRight: '0.25rem' }}>
       {totalTimeString}
     </span>
-    const activeTimeJsx = recipeData.activeTimeMinutes !== recipeData.totalTimeMinutes ?
+
+    const showBothTimes = recipeData.activeTimeMinutes && recipeData.activeTimeMinutes !== recipeData.totalTimeMinutes
+
+    const activeTimeJsx = showBothTimes ?
       <span style={{ marginRight: '1rem' }}>
-        <span style={{ marginRight: '0.25rem' }}>
+        <span style={{ fontSize: '2.1em', marginRight: '0.22rem' }}>
           {convertTime(recipeData.activeTimeMinutes)}
         </span>
       <span>active</span>
     </span> : null;
 
-    const totalTimeJsx = recipeData.activeTimeMinutes !== recipeData.totalTimeMinutes ?
-      <span>{justTotalTimeJsx}<span>total</span></span> : justTotalTimeJsx;
+    const totalTimeJsx = showBothTimes ?
+      <span style={{ fontSize: '2.1em', marginRight: '0.22rem' }}>{justTotalTimeJsx}<span>total</span></span> : justTotalTimeJsx;
 
-    const timeElement = <p style={{ margin: '0', fontFamily: 'label', fontSize: '2.2em' }}>{activeTimeJsx}{totalTimeJsx}</p>
-    const yieldElement = <p style={{ margin: '0', fontFamily: 'label', fontSize: '2.2em' }}>{yieldsParsed}</p>
+    const timeElement = <p style={{ margin: '0', fontFamily: 'label', fontSize: '1.9em' }}>{activeTimeJsx}{totalTimeJsx}</p>
+    const yieldElement = <p style={{ margin: '0', fontFamily: 'label', fontSize: '1.9em' }}>{yieldsParsed}</p>
 
     const body = <>
       <div style={{ display: 'flex', flexDirection: 'column', width: '68%' }}>

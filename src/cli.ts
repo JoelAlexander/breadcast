@@ -124,7 +124,9 @@ const handlePinFile = () => {
     }
     try {
       const fileBuffer = readFileSync(filePath);
-      const cid = await pinBufferToIPFS(fileBuffer, filePath);
+      const ext = path.extname(filePath)
+      const contentType = ext === '.png' ? 'image/png' : 'application/json'
+      const cid = await pinBufferToIPFS(fileBuffer, path.basename(filePath), contentType);
       if (cid) {
         console.log(`File pinned successfully. CID: ${cid}`);
       } else {
@@ -268,7 +270,7 @@ const renderAndPinJsxWithName = async (jsx: JSX.Element, name: string): Promise<
   console.log(`Rendering ${name}`)
   const pngBuffer = await renderJSXToPngBuffer(jsx);
   console.log(`Pinning ${name}`)
-  return pinBufferToIPFS(pngBuffer, name)
+  return pinBufferToIPFS(pngBuffer, name, 'image/png')
 }
 
 const renderAndPinFrame = async (recipeDataCid: string): Promise<RenderedRecipe> => {
@@ -382,7 +384,7 @@ const handleCreateAndPinRecipe = async () => {
     const recipeData = loadRecipeFromDisk(answers.filePath)
     recipeData.imageCid = answers.imageCid
     const pinnedBuffer = Buffer.from(JSON.stringify(recipeData))
-    const cid = await pinBufferToIPFS(pinnedBuffer, path.basename(answers.filePath))
+    const cid = await pinBufferToIPFS(pinnedBuffer, path.basename(answers.filePath), 'application/json')
 
     console.log(`Pinned recipe to ${cid}`)
 
